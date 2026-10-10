@@ -117,6 +117,7 @@ CREATE POLICY "Delete own fees" ON fees_setup FOR DELETE USING (auth.uid() = tea
 CREATE POLICY "View own deposits" ON deposits FOR SELECT USING (auth.uid() = teacher_id);
 CREATE POLICY "Insert own deposits" ON deposits FOR INSERT WITH CHECK (auth.uid() = teacher_id);
 CREATE POLICY "Update own deposits" ON deposits FOR UPDATE USING (auth.uid() = teacher_id);
+CREATE POLICY "Delete own deposits" ON deposits FOR DELETE USING (auth.uid() = teacher_id);
 
 -- Payments Policy
 CREATE POLICY "View own payments" ON payments FOR SELECT USING (auth.uid() = teacher_id);

@@ -73,11 +73,11 @@ export default function StudentList({ classId }) {
 
   return (
     <div className="card" style={{ marginTop: "20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", gap: "15px" }}>
         <h2 style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--brand-primary)" }}>
           <Users /> স্টুডেন্ট লিস্ট
         </h2>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button 
             className="btn" 
             style={{ display: "flex", alignItems: "center", gap: "5px", background: "#f39c12", color: "white" }}

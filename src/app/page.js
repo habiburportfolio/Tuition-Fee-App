@@ -204,10 +204,10 @@ export default function Home() {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "var(--bg-color)" }}>
       
       {/* Top Navbar */}
-      <nav style={{ background: "var(--card-bg)", borderBottom: "1px solid var(--border-color)", padding: "15px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100 }}>
-        <h2 style={{ color: "var(--brand-primary)", margin: 0, fontSize: "20px" }}>ClassFee Tracker</h2>
+      <nav style={{ background: "var(--card-bg)", borderBottom: "1px solid var(--border-color)", padding: "15px 20px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100, gap: "15px" }}>
+        <h2 style={{ color: "var(--brand-primary)", margin: 0, fontSize: "20px", flexShrink: 0 }}>ClassFee Tracker</h2>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           
           {/* Global Class Selector */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -231,7 +231,7 @@ export default function Home() {
           <button onClick={logout} className="btn" style={{ display: "flex", alignItems: "center", gap: "5px", padding: "8px 12px", background: "transparent", border: "1px solid var(--border-color)", color: "var(--brand-danger)" }}>
             <LogOut size={16} /> লগআউট
           </button>
-          <button onClick={toggleTheme} className="btn" style={{ padding: "8px", background: "transparent", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+          <button onClick={toggleTheme} className="btn" style={{ padding: "8px", background: "transparent", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} title="থিম পরিবর্তন">
             {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
           </button>
         </div>

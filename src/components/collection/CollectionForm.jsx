@@ -385,7 +385,8 @@ export default function CollectionForm({ classId }) {
           <h4 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "15px", color: "var(--text-secondary)" }}>
             <Clock size={18} /> সাম্প্রতিক কালেকশন (Cash in Hand)
           </h4>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "400px" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                 <th style={{ padding: "10px" }}>রসিদ নং</th>
@@ -415,6 +416,7 @@ export default function CollectionForm({ classId }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
