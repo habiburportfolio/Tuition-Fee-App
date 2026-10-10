@@ -1,28 +1,24 @@
 :root {
-  --brand-primary: hsl(210, 100%, 50%);
-  --brand-success: hsl(145, 63%, 42%);
+  /* Brand Colors - Vibrant & Premium */
+  --brand-primary: hsl(221, 83%, 53%);
+  --brand-primary-hover: hsl(221, 83%, 47%);
+  --brand-primary-light: hsl(221, 83%, 95%);
+  --brand-success: hsl(152, 69%, 45%);
   --brand-warning: hsl(35, 92%, 53%);
-  --brand-danger: hsl(354, 70%, 54%);
-  --bg-color: hsl(0, 0%, 98%);
-  --text-primary: hsl(0, 0%, 20%);
-  --text-secondary: hsl(0, 0%, 40%);
-  --border-color: hsl(0, 0%, 85%);
+  --brand-danger: hsl(348, 83%, 55%);
+  
+  /* Backgrounds */
+  --bg-color: hsl(210, 33%, 99%);
   --card-bg: hsl(0, 0%, 100%);
-}
-
-[data-theme='dark'] {
-  --brand-primary: hsl(210, 100%, 65%);
-  --brand-success: hsl(145, 63%, 50%);
-  --brand-warning: hsl(35, 92%, 60%);
-  --brand-danger: hsl(354, 70%, 65%);
-  --bg-color: hsl(220, 20%, 12%);
-  --text-primary: hsl(0, 0%, 95%);
-  --text-secondary: hsl(0, 0%, 75%);
-  --border-color: hsl(220, 15%, 25%);
-  --card-bg: hsl(220, 20%, 16%);
+  --border-color: hsl(214, 32%, 91%);
+  
+  /* Typography Colors */
+  --text-primary: hsl(222, 47%, 11%);
+  --text-secondary: hsl(215, 16%, 47%);
+  --text-tertiary: hsl(215, 16%, 65%);
 
   /* Typography */
-  --font-primary: 'Inter', 'Hind Siliguri', sans-serif;
+  --font-primary: 'Inter', 'Hind Siliguri', system-ui, sans-serif;
   
   /* Spacing */
   --spacing-sm: 8px;
@@ -30,12 +26,44 @@
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* Border Radius - Modern Rounded Aesthetics */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  /* Shadows - Soft & Layered */
+  --shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme='dark'] {
+  --brand-primary: hsl(217, 91%, 60%);
+  --brand-primary-hover: hsl(217, 91%, 65%);
+  --brand-primary-light: hsl(217, 91%, 20%);
+  --brand-success: hsl(152, 69%, 55%);
+  --brand-warning: hsl(40, 96%, 65%);
+  --brand-danger: hsl(348, 83%, 65%);
+  
+  --bg-color: hsl(222, 47%, 11%);
+  --card-bg: hsl(217, 33%, 17%);
+  --border-color: hsl(215, 28%, 25%);
+  
+  --text-primary: hsl(0, 0%, 98%);
+  --text-secondary: hsl(215, 20%, 65%);
+  --text-tertiary: hsl(215, 20%, 50%);
+  
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }

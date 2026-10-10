@@ -142,8 +142,8 @@ export default function Home() {
   if (!user) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "var(--bg-color)" }}>
-        <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "30px" }}>
-          <h2 style={{ textAlign: "center", color: "var(--brand-primary)", marginBottom: "30px" }}>ClassFee Tracker</h2>
+        <div className="card-glass animate-fade-in" style={{ width: "100%", maxWidth: "420px", padding: "40px 30px" }}>
+          <h2 style={{ textAlign: "center", background: "linear-gradient(135deg, var(--brand-primary), #8e44ad)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: "40px", fontSize: "32px", fontWeight: "800", letterSpacing: "-1px" }}>ClassFee Tracker</h2>
           
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <div>
@@ -204,10 +204,10 @@ export default function Home() {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "var(--bg-color)" }}>
       
       {/* Top Navbar */}
-      <nav style={{ background: "var(--card-bg)", borderBottom: "1px solid var(--border-color)", padding: "15px 20px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100, gap: "15px" }}>
-        <h2 style={{ color: "var(--brand-primary)", margin: 0, fontSize: "20px", flexShrink: 0 }}>ClassFee Tracker</h2>
+      <nav className="card-glass" style={{ borderRadius: 0, borderTop: "none", borderLeft: "none", borderRight: "none", padding: "16px 24px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100, gap: "15px" }}>
+        <h2 style={{ margin: 0, fontSize: "24px", fontWeight: "800", background: "linear-gradient(135deg, var(--brand-primary), #8e44ad)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", flexShrink: 0, letterSpacing: "-0.5px" }}>ClassFee Tracker</h2>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           
           {/* Global Class Selector */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -240,17 +240,21 @@ export default function Home() {
       <div style={{ display: "flex", flex: 1, maxWidth: "1200px", margin: "0 auto", width: "100%", padding: "20px", gap: "20px", flexDirection: "column" }}>
         
         {/* Navigation Tabs */}
-        <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "10px" }}>
+        <div className="card-glass" style={{ padding: "12px", display: "flex", gap: "12px", overflowX: "auto", marginBottom: "10px" }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className="btn"
               style={{
-                display: "flex", alignItems: "center", gap: "8px", padding: "10px 15px", whiteSpace: "nowrap",
-                background: activeTab === tab.id ? "var(--brand-primary)" : "var(--card-bg)",
+                display: "flex", alignItems: "center", gap: "8px", padding: "12px 20px", whiteSpace: "nowrap",
+                background: activeTab === tab.id ? "linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%)" : "transparent",
                 color: activeTab === tab.id ? "#fff" : "var(--text-secondary)",
-                border: activeTab === tab.id ? "none" : "1px solid var(--border-color)",
+                border: "none",
+                borderRadius: "var(--radius-full)",
+                boxShadow: activeTab === tab.id ? "0 4px 14px 0 rgba(0, 118, 255, 0.39)" : "none",
+                fontWeight: activeTab === tab.id ? "700" : "600",
+                transition: "all 0.3s ease"
               }}
             >
               {tab.icon} {tab.label}

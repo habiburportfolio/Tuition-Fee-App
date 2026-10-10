@@ -219,15 +219,15 @@ export default function Dashboard({ classId }) {
         </button>
       </div>
       
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px" }}>
         {statCards.map((card, index) => (
-          <div key={index} className="card" style={{ display: "flex", alignItems: "center", gap: "15px", padding: "20px" }}>
-            <div style={{ padding: "12px", borderRadius: "50%", backgroundColor: card.bg, display: "flex" }}>
+          <div key={index} className="card animate-fade-in" style={{ display: "flex", alignItems: "center", gap: "18px", padding: "24px", animationDelay: `${index * 0.1}s` }}>
+            <div style={{ padding: "16px", borderRadius: "var(--radius-full)", backgroundColor: card.bg, display: "flex", boxShadow: "0 4px 10px rgba(0,0,0,0.05)" }}>
               {card.icon}
             </div>
             <div>
-              <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "5px" }}>{card.title}</div>
-              <div style={{ fontSize: "24px", fontWeight: "bold", color: card.color }}>{card.amount} ৳</div>
+              <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: "600" }}>{card.title}</div>
+              <div style={{ fontSize: "28px", fontWeight: "800", color: card.color, letterSpacing: "-0.5px" }}>{card.amount} ৳</div>
             </div>
           </div>
         ))}
@@ -276,20 +276,20 @@ export default function Dashboard({ classId }) {
         </div>
       </div>
 
-      <div style={{ marginTop: "40px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "10px" }}>
-            <h4 style={{ color: "var(--brand-primary)", margin: 0 }}>স্টুডেন্ট কালেকশন রেকর্ড</h4>
+      <div style={{ marginTop: "40px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+        <div className="card animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "15px" }}>
+            <h4 style={{ color: "var(--brand-primary)", margin: 0, fontSize: "18px" }}>স্টুডেন্ট কালেকশন রেকর্ড</h4>
             <input 
               type="text" 
               placeholder="নাম, রোল বা রসিদ নং দিয়ে খুঁজুন..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ padding: "8px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", fontSize: "14px", width: "100%", maxWidth: "250px" }}
+              style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", border: "1px solid var(--border-color)", fontSize: "14px", width: "100%", maxWidth: "250px", backgroundColor: "var(--bg-color)" }}
             />
           </div>
           
-          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+          <div style={{ maxHeight: "350px", overflowX: "auto", overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
@@ -325,9 +325,9 @@ export default function Dashboard({ classId }) {
           </div>
         </div>
 
-        <div className="card">
-          <h4 style={{ marginBottom: "15px", color: "var(--brand-success)" }}>বিদ্যালয়ে জমা রেকর্ড</h4>
-          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+        <div className="card animate-fade-in" style={{ animationDelay: "0.5s" }}>
+          <h4 style={{ marginBottom: "20px", color: "var(--brand-success)", fontSize: "18px" }}>বিদ্যালয়ে জমা রেকর্ড</h4>
+          <div style={{ maxHeight: "350px", overflowX: "auto", overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>

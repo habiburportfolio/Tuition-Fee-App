@@ -13,6 +13,7 @@ html, body {
   background-color: var(--bg-color);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
 a {
@@ -24,6 +25,22 @@ button, input, select, textarea {
   font-family: inherit;
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
 /* Base UI classes */
 .container {
   padding: var(--spacing-md);
@@ -32,44 +49,95 @@ button, input, select, textarea {
 }
 
 .btn {
-  padding: 10px 16px;
+  padding: 12px 20px;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 14px;
   line-height: 1.5;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn:active {
-  opacity: 0.8;
+  transform: scale(0.97);
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary {
-  background-color: var(--brand-primary);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%);
   color: white;
+  box-shadow: 0 4px 14px 0 rgba(0, 118, 255, 0.39);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(0, 118, 255, 0.23);
+  transform: translateY(-1px);
 }
 
 .btn-success {
-  background-color: var(--brand-success);
+  background: linear-gradient(135deg, var(--brand-success) 0%, hsl(152, 69%, 35%) 100%);
   color: white;
 }
 
 .btn-danger {
-  background-color: var(--brand-danger);
+  background: linear-gradient(135deg, var(--brand-danger) 0%, hsl(348, 83%, 45%) 100%);
   color: white;
 }
 
 .card {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-md);
-  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+/* Optional Glassmorphism variant for modern look */
+.card-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Inputs */
+input, select {
+  transition: all 0.3s ease;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--brand-primary) !important;
+  box-shadow: 0 0 0 3px var(--brand-primary-light);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
 }
 
 @media print {
-  .card {
+  .card, .card-glass {
     box-shadow: none;
     border: none;
   }
