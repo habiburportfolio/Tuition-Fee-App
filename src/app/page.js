@@ -61,6 +61,10 @@ export default function Home() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.error("লগইন করতে ইমেইল এবং পাসওয়ার্ড দিন!");
+      return;
+    }
     try {
       await login(email, password);
       toast.success("লগইন সফল হয়েছে!");
@@ -70,6 +74,14 @@ export default function Home() {
   };
 
   const handleRegister = async () => {
+    if (!email || !password) {
+      toast.error("রেজিস্ট্রেশন করতে ইমেইল এবং পাসওয়ার্ড দিন!");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে!");
+      return;
+    }
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
