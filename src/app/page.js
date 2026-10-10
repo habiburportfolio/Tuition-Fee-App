@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun } from "lucide-react";
+import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff } from "lucide-react";
 
 // Components
 import AcademicSetupForm from "@/components/setup/AcademicSetupForm";
@@ -22,6 +22,8 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   
   // App state
   const [classes, setClasses] = useState([]);
@@ -149,9 +151,22 @@ export default function Home() {
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} />
             </div>
             
-            <div>
+            <div style={{ position: "relative" }}>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>পাসওয়ার্ড</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} />
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                style={{ width: "100%", padding: "10px", paddingRight: "40px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: "absolute", right: "10px", top: "32px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -272,16 +287,23 @@ export default function Home() {
             <h3 style={{ marginBottom: "20px", color: "var(--brand-primary)" }}>পাসওয়ার্ড পরিবর্তন করুন</h3>
             
             <form onSubmit={handleUpdatePassword}>
-              <div style={{ marginBottom: "15px" }}>
+              <div style={{ marginBottom: "15px", position: "relative" }}>
                 <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>নতুন পাসওয়ার্ড</label>
                 <input 
-                  type="password" 
+                  type={showNewPassword ? "text" : "password"} 
                   value={newPassword} 
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="নতুন পাসওয়ার্ড লিখুন"
                   required
-                  style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+                  style={{ width: "100%", padding: "10px", paddingRight: "40px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
                 />
+                <button 
+                  type="button" 
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  style={{ position: "absolute", right: "10px", top: "32px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+                >
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
