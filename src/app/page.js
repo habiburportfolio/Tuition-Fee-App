@@ -1,69 +1,289 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
+import toast from "react-hot-toast";
+import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun } from "lucide-react";
+
+// Components
+import AcademicSetupForm from "@/components/setup/AcademicSetupForm";
+import StudentList from "@/components/students/StudentList";
+import FeesSetupForm from "@/components/setup/FeesSetupForm";
+import CollectionForm from "@/components/collection/CollectionForm";
+import DepositForm from "@/components/deposits/DepositForm";
+import Dashboard from "@/components/dashboard/Dashboard";
 
 export default function Home() {
+  const { user, login, logout, loading: authLoading } = useAuth();
+  
+  // Auth state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  
+  // App state
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [activeTab, setActiveTab] = useState("collection");
+  const [theme, setTheme] = useState("light");
+
+  // Load theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme);
+  };
+
+  // Fetch classes for logged in user
+  useEffect(() => {
+    if (user) {
+      supabase.from("academic_classes")
+        .select("*")
+        .eq("teacher_id", user.id)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          setClasses(data || []);
+          if (data && data.length > 0 && !selectedClassId) {
+            setSelectedClassId(data[0].id);
+          }
+        });
+    }
+  }, [user, selectedClassId]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      await login(email, password);
+      toast.success("লগইন সফল হয়েছে!");
+    } catch (error) {
+      toast.error(`❌ লগইন এরর: ${error.message}`);
+    }
+  };
+
+  const handleRegister = async () => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+      
+      // Auto create teacher profile on signup
+      if (data?.user) {
+        await supabase.from("teachers").insert([{
+          id: data.user.id,
+          email: email,
+          full_name: "Teacher User",
+          school_name: "My School"
+        }]);
+      }
+      toast.success("রেজিস্ট্রেশন সফল! লগইন করা হয়েছে।");
+    } catch (error) {
+      toast.error(`❌ রেজিস্ট্রেশন এরর: ${error.message}`);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("পাসওয়ার্ড রিসেট করতে আগে আপনার ইমেইলটি ইমেইলের ঘরে লিখুন!");
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      toast.success("আপনার ইমেইলে পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে! দয়া করে ইমেইল চেক করুন।");
+    } catch (error) {
+      toast.error(`❌ এরর: ${error.message}`);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) return toast.error("পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে!");
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!");
+      setShowPasswordModal(false);
+      setNewPassword("");
+    } catch (error) {
+      toast.error(`❌ পাসওয়ার্ড আপডেট এরর: ${error.message}`);
+    }
+  };
+
+  if (authLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>লোড হচ্ছে...</div>;
+
+  // Login UI
+  if (!user) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "var(--bg-color)" }}>
+        <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "30px" }}>
+          <h2 style={{ textAlign: "center", color: "var(--brand-primary)", marginBottom: "30px" }}>ClassFee Tracker</h2>
+          
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <div>
+              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>ইমেইল</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} />
+            </div>
+            
+            <div>
+              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>পাসওয়ার্ড</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button type="submit" className="btn btn-primary" style={{ padding: "12px", flex: 1 }}>লগইন করুন</button>
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={handleForgotPassword} 
+              style={{ background: "none", border: "none", color: "var(--brand-primary)", textDecoration: "underline", cursor: "pointer", fontSize: "14px", textAlign: "right" }}
+            >
+              পাসওয়ার্ড ভুলে গেছেন?
+            </button>
+            
+            <div style={{ textAlign: "center", margin: "10px 0", color: "var(--text-secondary)" }}>অথবা</div>
+            
+            <button type="button" onClick={handleRegister} className="btn" style={{ border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", background: "var(--card-bg)", padding: "12px" }}>নতুন একাউন্ট খুলুন</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Tabs configuration
+  const tabs = [
+    { id: "dashboard", label: "ড্যাশবোর্ড", icon: <LayoutDashboard size={18} /> },
+    { id: "collection", label: "কালেকশন", icon: <CreditCard size={18} /> },
+    { id: "deposit", label: "জমা (Deposit)", icon: <Landmark size={18} /> },
+    { id: "students", label: "স্টুডেন্ট লিস্ট", icon: <Users size={18} /> },
+    { id: "fees", label: "ফি সেটআপ", icon: <DollarSign size={18} /> },
+    { id: "setup", label: "ক্লাস সেটআপ", icon: <BookOpen size={18} /> },
+  ];
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.js</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "var(--bg-color)" }}>
+      
+      {/* Top Navbar */}
+      <nav style={{ background: "var(--card-bg)", borderBottom: "1px solid var(--border-color)", padding: "15px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100 }}>
+        <h2 style={{ color: "var(--brand-primary)", margin: 0, fontSize: "20px" }}>ClassFee Tracker</h2>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          
+          {/* Global Class Selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "14px", fontWeight: "bold" }}>বর্তমান ক্লাস:</span>
+            <select 
+              value={selectedClassId} 
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              style={{ padding: "8px", borderRadius: "var(--radius-sm)", border: "1px solid var(--brand-primary)", fontWeight: "bold", outline: "none" }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+              <option value="">নির্বাচন করুন</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.class_name} {c.section_name ? `(${c.section_name})` : ''} - {c.session_year}</option>
+              ))}
+            </select>
+          </div>
+
+          <button onClick={() => setShowPasswordModal(true)} className="btn" style={{ padding: "8px", background: "transparent", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)" }} title="পাসওয়ার্ড পরিবর্তন করুন">
+            Change Password
+          </button>
+          
+          <button onClick={logout} className="btn" style={{ display: "flex", alignItems: "center", gap: "5px", padding: "8px 12px", background: "transparent", border: "1px solid var(--border-color)", color: "var(--brand-danger)" }}>
+            <LogOut size={16} /> লগআউট
+          </button>
+          <button onClick={toggleTheme} className="btn" style={{ padding: "8px", background: "transparent", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        </div>
+      </nav>
+
+      <div style={{ display: "flex", flex: 1, maxWidth: "1200px", margin: "0 auto", width: "100%", padding: "20px", gap: "20px", flexDirection: "column" }}>
+        
+        {/* Navigation Tabs */}
+        <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "10px" }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="btn"
+              style={{
+                display: "flex", alignItems: "center", gap: "8px", padding: "10px 15px", whiteSpace: "nowrap",
+                background: activeTab === tab.id ? "var(--brand-primary)" : "var(--card-bg)",
+                color: activeTab === tab.id ? "#fff" : "var(--text-secondary)",
+                border: activeTab === tab.id ? "none" : "1px solid var(--border-color)",
+              }}
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              {tab.icon} {tab.label}
+            </button>
+          ))}
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Main Content Area */}
+        <div style={{ flex: 1 }}>
+          {activeTab !== "setup" && activeTab !== "deposit" && !selectedClassId ? (
+            <div className="card" style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
+              <BookOpen size={48} style={{ marginBottom: "15px", opacity: 0.5 }} />
+              <h3>কোনো ক্লাস নির্বাচিত নেই</h3>
+              <p>দয়া করে উপরের মেনু থেকে একটি ক্লাস নির্বাচন করুন অথবা &quot;ক্লাস সেটআপ&quot; থেকে নতুন ক্লাস তৈরি করুন।</p>
+            </div>
+          ) : (
+            <>
+              {activeTab === "dashboard" && <Dashboard classId={selectedClassId} />}
+              {activeTab === "collection" && <CollectionForm classId={selectedClassId} />}
+              {activeTab === "deposit" && <DepositForm />}
+              {activeTab === "students" && <StudentList classId={selectedClassId} />}
+              {activeTab === "fees" && <FeesSetupForm classId={selectedClassId} />}
+              {activeTab === "setup" && <AcademicSetupForm />}
+            </>
+          )}
         </div>
-      </main>
+
+      </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
+          <div className="card" style={{ width: "100%", maxWidth: "400px", position: "relative" }}>
+            <h3 style={{ marginBottom: "20px", color: "var(--brand-primary)" }}>পাসওয়ার্ড পরিবর্তন করুন</h3>
+            
+            <form onSubmit={handleUpdatePassword}>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>নতুন পাসওয়ার্ড</label>
+                <input 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="নতুন পাসওয়ার্ড লিখুন"
+                  required
+                  style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button type="button" onClick={() => setShowPasswordModal(false)} className="btn" style={{ border: "1px solid var(--border-color)", background: "transparent", color: "var(--text-primary)" }}>
+                  বাতিল
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  আপডেট করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
