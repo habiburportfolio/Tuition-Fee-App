@@ -1,8 +1,21 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 import { X, Send, Printer } from "lucide-react";
 
 export default function ReceiptModal({ receiptData, onClose }) {
+  const { user } = useAuth();
+  const [teacherProfile, setTeacherProfile] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from("teachers").select("*").eq("id", user.id).single()
+        .then(({ data }) => setTeacherProfile(data));
+    }
+  }, [user]);
+
   if (!receiptData) return null;
 
   const { student, payment, selectedFeesDetails, totalPayable, discount, fine } = receiptData;
@@ -59,20 +72,38 @@ export default function ReceiptModal({ receiptData, onClose }) {
   return (
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+      backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px"
     }}>
-      <div className="card" style={{ width: "90%", maxWidth: "400px", padding: "0" }}>
+      <div className="card-glass" style={{ width: "100%", maxWidth: "420px", padding: "0", maxHeight: "90vh", overflowY: "auto" }}>
         
         <div style={{ background: "var(--brand-primary)", color: "white", padding: "15px", borderRadius: "var(--radius-lg) var(--radius-lg) 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>পেমেন্ট রসিদ</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "white", cursor: "pointer" }}><X /></button>
         </div>
 
-        <div style={{ padding: "15px" }}>
+        <div style={{ padding: "15px" }} id="printable-receipt">
+          {/* School Header */}
+          {teacherProfile && (
+            <div style={{ textAlign: "center", borderBottom: "2px solid var(--border-color)", paddingBottom: "10px", marginBottom: "15px" }}>
+              {teacherProfile.logo_url && (
+                <img src={teacherProfile.logo_url} alt="School Logo" style={{ width: "50px", height: "50px", objectFit: "contain", marginBottom: "5px" }} />
+              )}
+              <h3 style={{ margin: "0 0 5px 0", color: "var(--brand-primary)", fontSize: "18px" }}>{teacherProfile.school_name}</h3>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "2px" }}>
+                {teacherProfile.eiin_number && <span>EIIN: {teacherProfile.eiin_number}</span>}
+                {teacherProfile.school_email && <span>ইমেইল: {teacherProfile.school_email}</span>}
+                <div style={{ display: "flex", justifyContent: "center", gap: "15px", marginTop: "4px" }}>
+                  <span>ক্লাস টিচার: {teacherProfile.phone_number || '-'}</span>
+                  {teacherProfile.head_teacher_phone && <span>প্রধান শিক্ষক: {teacherProfile.head_teacher_phone}</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ textAlign: "center", marginBottom: "10px" }}>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রসিদ নং: {payment.receipt_no}</div>
-            <h2 style={{ color: "var(--brand-success)", fontSize: "24px", margin: "5px 0" }}>{payment.amount_paid} ৳</h2>
-            <div style={{ fontSize: "14px", fontWeight: "bold" }}>পেমেন্ট সফল হয়েছে!</div>
+            <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "bold" }}>রসিদ নং: {payment.receipt_no}</div>
+            <h2 style={{ color: "var(--brand-success)", fontSize: "28px", margin: "5px 0", fontWeight: "800" }}>{payment.amount_paid} ৳</h2>
+            <div style={{ fontSize: "14px", fontWeight: "bold", color: "var(--text-secondary)" }}>পেমেন্ট সফল হয়েছে!</div>
           </div>
 
           <div style={{ background: "var(--bg-color)", padding: "10px", borderRadius: "var(--radius-sm)", marginBottom: "15px", fontSize: "13px" }}>
@@ -127,6 +158,21 @@ export default function ReceiptModal({ receiptData, onClose }) {
             </p>
           </div>
 
+          {/* Signature Section */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", marginBottom: "20px", padding: "0 10px" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "100px", paddingTop: "5px", fontSize: "12px", color: "var(--text-secondary)" }}>প্রদানকারী</div>
+            </div>
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {teacherProfile?.signature_url ? (
+                <img src={teacherProfile.signature_url} alt="Signature" style={{ height: "30px", objectFit: "contain", marginBottom: "2px" }} />
+              ) : (
+                <div style={{ height: "30px" }}></div>
+              )}
+              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "100px", paddingTop: "5px", fontSize: "12px", color: "var(--text-secondary)" }}>গ্রহণকারী</div>
+            </div>
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               <button 
@@ -153,13 +199,24 @@ export default function ReceiptModal({ receiptData, onClose }) {
             >
               <Send size={16} /> Email-এ পাঠান
             </a>
-            <button 
-              onClick={onClose}
-              className="btn btn-primary" 
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "12px" }}
-            >
-               পরবর্তী পেমেন্ট নিন
-            </button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button 
+                onClick={() => {
+                  window.print();
+                }}
+                className="btn" 
+                style={{ flex: 1, border: "1px solid var(--border-color)", background: "transparent", color: "var(--text-primary)" }}
+              >
+                <Printer size={16} /> প্রিন্ট
+              </button>
+              <button 
+                onClick={onClose}
+                className="btn btn-primary" 
+                style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px" }}
+              >
+                 পরবর্তী পেমেন্ট নিন
+              </button>
+            </div>
           </div>
         </div>
       </div>

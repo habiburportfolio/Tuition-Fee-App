@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff } from "lucide-react";
+import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff, Settings } from "lucide-react";
 
 // Components
 import AcademicSetupForm from "@/components/setup/AcademicSetupForm";
@@ -13,6 +13,7 @@ import FeesSetupForm from "@/components/setup/FeesSetupForm";
 import CollectionForm from "@/components/collection/CollectionForm";
 import DepositForm from "@/components/deposits/DepositForm";
 import Dashboard from "@/components/dashboard/Dashboard";
+import ProfileSetupForm from "@/components/setup/ProfileSetupForm";
 
 export default function Home() {
   const { user, login, logout, loading: authLoading } = useAuth();
@@ -198,6 +199,7 @@ export default function Home() {
     { id: "students", label: "স্টুডেন্ট লিস্ট", icon: <Users size={18} /> },
     { id: "fees", label: "ফি সেটআপ", icon: <DollarSign size={18} /> },
     { id: "setup", label: "ক্লাস সেটআপ", icon: <BookOpen size={18} /> },
+    { id: "profile", label: "সেটিংস", icon: <Settings size={18} /> },
   ];
 
   return (
@@ -264,7 +266,7 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div style={{ flex: 1 }}>
-          {activeTab !== "setup" && activeTab !== "deposit" && !selectedClassId ? (
+          {activeTab !== "setup" && activeTab !== "deposit" && activeTab !== "profile" && !selectedClassId ? (
             <div className="card" style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
               <BookOpen size={48} style={{ marginBottom: "15px", opacity: 0.5 }} />
               <h3>কোনো ক্লাস নির্বাচিত নেই</h3>
@@ -278,6 +280,7 @@ export default function Home() {
               {activeTab === "students" && <StudentList classId={selectedClassId} />}
               {activeTab === "fees" && <FeesSetupForm classId={selectedClassId} />}
               {activeTab === "setup" && <AcademicSetupForm />}
+              {activeTab === "profile" && <ProfileSetupForm />}
             </>
           )}
         </div>

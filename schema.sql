@@ -8,6 +8,11 @@ CREATE TABLE teachers (
     full_name TEXT NOT NULL,
     school_name TEXT NOT NULL,
     phone_number TEXT,
+    eiin_number TEXT,
+    school_email TEXT,
+    head_teacher_phone TEXT,
+    logo_url TEXT,
+    signature_url TEXT,
     role TEXT DEFAULT 'teacher', -- 'teacher' or 'assistant'
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
