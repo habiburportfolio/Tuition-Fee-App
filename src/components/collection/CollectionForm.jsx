@@ -7,11 +7,12 @@ import { Search, User, CreditCard, CheckCircle, Clock, XCircle } from "lucide-re
 import toast from "react-hot-toast";
 import ReceiptModal from "./ReceiptModal";
 
-export default function CollectionForm({ classId }) {
+export default function CollectionForm({ classId, classInfo }) {
   const { user, userRole } = useAuth();
   const [rollNo, setRollNo] = useState("");
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [currentClass, setCurrentClass] = useState(classInfo || null);
   
   // Payment states
   const [fees, setFees] = useState([]);
@@ -24,11 +25,20 @@ export default function CollectionForm({ classId }) {
   const [recentPayments, setRecentPayments] = useState([]);
 
   useEffect(() => {
+    if (classInfo) {
+      setCurrentClass(classInfo);
+    } else if (classId) {
+      supabase.from("academic_classes").select("*").eq("id", classId).single()
+        .then(({ data }) => setCurrentClass(data));
+    }
+  }, [classId, classInfo]);
+
+  useEffect(() => {
     const fetchRecentPayments = async () => {
       if (!classId) return;
       const { data } = await supabase
         .from("payments")
-        .select("*, students(full_name, roll_no)")
+        .select("*, students(full_name, roll_no, class_id)")
         .eq("is_voided", false)
         .is("deposit_id", null)
         .order("paid_at", { ascending: false })
@@ -187,6 +197,7 @@ export default function CollectionForm({ classId }) {
 
       setReceiptData({
         student,
+        classInfo: currentClass,
         payment: { amount_paid: paid, due_remaining: dueRemaining, receipt_no: receiptNo },
         selectedFeesDetails,
         totalPayable: netPayable,
@@ -254,9 +265,27 @@ export default function CollectionForm({ classId }) {
 
   return (
     <div className="card" style={{ marginTop: "20px" }}>
-      <h3 style={{ color: "var(--brand-primary)", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-        <CreditCard /> ফি কালেকশন
-      </h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
+        <h3 style={{ color: "var(--brand-primary)", margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+          <CreditCard /> ফি কালেকশন
+        </h3>
+        {currentClass && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-color)", padding: "6px 14px", borderRadius: "var(--radius-full)", border: "1px solid var(--border-color)", fontSize: "13px" }}>
+            <span style={{ fontWeight: "700" }}>{currentClass.class_name}</span>
+            {currentClass.group_name && (
+              <span style={{
+                padding: "2px 8px", borderRadius: "var(--radius-full)", fontWeight: "700", fontSize: "11px",
+                backgroundColor: currentClass.group_name === "Science" ? "rgba(0, 112, 243, 0.15)" : currentClass.group_name === "Commerce" ? "rgba(39, 174, 96, 0.15)" : "rgba(142, 68, 173, 0.15)",
+                color: currentClass.group_name === "Science" ? "#0070f3" : currentClass.group_name === "Commerce" ? "#27ae60" : "#8e44ad",
+                border: "1px solid currentColor"
+              }}>
+                {currentClass.group_name === "Science" ? "Science (বিজ্ঞান)" : currentClass.group_name === "Commerce" ? "Commerce (ব্যবসায় শিক্ষা)" : currentClass.group_name === "Arts" ? "Arts (মানবিক)" : currentClass.group_name}
+              </span>
+            )}
+            {currentClass.section_name && <span>(শাখা: {currentClass.section_name})</span>}
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSearch} style={{ display: "flex", gap: "10px", marginBottom: "30px" }}>
         <div style={{ flex: "1", position: "relative" }}>
@@ -287,8 +316,21 @@ export default function CollectionForm({ classId }) {
               <h4 style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "20px", marginBottom: "5px" }}>
                 <User size={24} color="var(--brand-primary)" /> {student.full_name}
               </h4>
-              <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-                রোল: {student.roll_no} | স্ট্যাটাস: 
+              <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+                রোল: <b>{student.roll_no}</b>
+                {currentClass?.class_name && <> | শ্রেণি: <b>{currentClass.class_name}</b></>}
+                {currentClass?.group_name && (
+                  <>
+                    {" "}| বিভাগ:{" "}
+                    <strong style={{
+                      color: currentClass.group_name === "Science" ? "#0070f3" : currentClass.group_name === "Commerce" ? "#27ae60" : "#8e44ad"
+                    }}>
+                      {currentClass.group_name === "Science" ? "Science (বিজ্ঞান)" : currentClass.group_name === "Commerce" ? "Commerce (ব্যবসায় শিক্ষা)" : currentClass.group_name === "Arts" ? "Arts (মানবিক)" : currentClass.group_name}
+                    </strong>
+                  </>
+                )}
+                {currentClass?.section_name && <> | শাখা: <b>{currentClass.section_name}</b></>}
+                {" "}| স্ট্যাটাস:{" "}
                 <strong style={{ color: student.status === "Active" ? "var(--brand-success)" : "var(--brand-danger)", marginLeft: "5px" }}>
                   {student.status}
                 </strong>
@@ -391,6 +433,7 @@ export default function CollectionForm({ classId }) {
               <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                 <th style={{ padding: "10px" }}>রসিদ নং</th>
                 <th style={{ padding: "10px" }}>স্টুডেন্ট</th>
+                <th style={{ padding: "10px" }}>বিভাগ (Group)</th>
                 <th style={{ padding: "10px" }}>টাকা</th>
                 <th style={{ padding: "10px", textAlign: "right" }}>অ্যাকশন</th>
               </tr>
@@ -399,7 +442,26 @@ export default function CollectionForm({ classId }) {
               {recentPayments.map(pay => (
                 <tr key={pay.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                   <td style={{ padding: "10px" }}>{pay.receipt_no}</td>
-                  <td style={{ padding: "10px" }}>{pay.students?.full_name} (রোল: {pay.students?.roll_no})</td>
+                  <td style={{ padding: "10px" }}>
+                    <b>{pay.students?.full_name}</b> <br />
+                    <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রোল: {pay.students?.roll_no}</span>
+                  </td>
+                  <td style={{ padding: "10px" }}>
+                    {currentClass?.group_name ? (
+                      <span style={{ 
+                        padding: "2px 8px", 
+                        borderRadius: "var(--radius-full)", 
+                        fontSize: "11px", 
+                        fontWeight: "700",
+                        backgroundColor: currentClass.group_name === "Science" ? "rgba(0, 112, 243, 0.12)" : currentClass.group_name === "Commerce" ? "rgba(39, 174, 96, 0.12)" : "rgba(142, 68, 173, 0.12)",
+                        color: currentClass.group_name === "Science" ? "#0070f3" : currentClass.group_name === "Commerce" ? "#27ae60" : "#8e44ad"
+                      }}>
+                        {currentClass.group_name}
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>
+                    )}
+                  </td>
                   <td style={{ padding: "10px", fontWeight: "bold", color: "var(--brand-success)" }}>{pay.amount_paid} ৳</td>
                   <td style={{ padding: "10px", textAlign: "right" }}>
                     {userRole !== 'assistant' && (

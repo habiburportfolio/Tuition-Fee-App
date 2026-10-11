@@ -9,13 +9,23 @@ import PromoteStudentsModal from "./PromoteStudentsModal";
 import toast from "react-hot-toast";
 import { Users, FileSpreadsheet, Plus, MessageCircle, ArrowRight } from "lucide-react";
 
-export default function StudentList({ classId }) {
+export default function StudentList({ classId, classInfo }) {
   const { user, userRole } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [currentClass, setCurrentClass] = useState(classInfo || null);
+
+  useEffect(() => {
+    if (classInfo) {
+      setCurrentClass(classInfo);
+    } else if (classId) {
+      supabase.from("academic_classes").select("*").eq("id", classId).single()
+        .then(({ data }) => setCurrentClass(data));
+    }
+  }, [classId, classInfo]);
 
   const fetchStudents = useCallback(async () => {
     if (!classId) return;
@@ -53,12 +63,53 @@ export default function StudentList({ classId }) {
     toast.success(`সাফল্যের সাথে ${dueStudents.length} জন স্টুডেন্টকে বকেয়া রিমাইন্ডার (SMS) পাঠানো হয়েছে!`, { duration: 4000 });
   };
 
+  const getGroupBadge = (group) => {
+    if (!group) return <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>;
+    const isSci = group.toLowerCase() === "science";
+    const isCom = group.toLowerCase() === "commerce";
+    const isArt = group.toLowerCase() === "arts";
+
+    const label = isSci ? "Science (বিজ্ঞান)" : isCom ? "Commerce (ব্যবসায় শিক্ষা)" : isArt ? "Arts (মানবিক)" : group;
+    const color = isSci ? "#0070f3" : isCom ? "#27ae60" : isArt ? "#8e44ad" : "var(--brand-primary)";
+    const bg = isSci ? "rgba(0, 112, 243, 0.12)" : isCom ? "rgba(39, 174, 96, 0.12)" : isArt ? "rgba(142, 68, 173, 0.12)" : "rgba(0,0,0,0.06)";
+
+    return (
+      <span style={{ 
+        padding: "3px 10px", 
+        borderRadius: "var(--radius-full)", 
+        fontSize: "12px", 
+        fontWeight: "700",
+        backgroundColor: bg,
+        color: color,
+        border: `1px solid ${color}`
+      }}>
+        {label}
+      </span>
+    );
+  };
+
   return (
     <div className="card" style={{ marginTop: "20px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", gap: "15px" }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--brand-primary)" }}>
-          <Users /> স্টুডেন্ট লিস্ট
-        </h2>
+        <div>
+          <h2 style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--brand-primary)", margin: 0 }}>
+            <Users /> স্টুডেন্ট লিস্ট
+          </h2>
+          {currentClass && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontWeight: "700", fontSize: "15px" }}>{currentClass.class_name}</span>
+              {currentClass.group_name && getGroupBadge(currentClass.group_name)}
+              {currentClass.section_name && (
+                <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                  শাখা: <b>{currentClass.section_name}</b>
+                </span>
+              )}
+              <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                শিক্ষাবর্ষ: <b>{currentClass.session_year}</b>
+              </span>
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button 
             className="btn" 
@@ -108,6 +159,7 @@ export default function StudentList({ classId }) {
               <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th style={{ padding: "12px", color: "var(--text-secondary)" }}>রোল</th>
                 <th style={{ padding: "12px", color: "var(--text-secondary)" }}>নাম</th>
+                <th style={{ padding: "12px", color: "var(--text-secondary)" }}>বিভাগ (Group)</th>
                 <th style={{ padding: "12px", color: "var(--text-secondary)" }}>স্ট্যাটাস</th>
                 <th style={{ padding: "12px", color: "var(--text-secondary)" }}>বকেয়া (৳)</th>
                 <th style={{ padding: "12px", color: "var(--text-secondary)", textAlign: "right" }}>অ্যাকশন</th>
@@ -118,6 +170,9 @@ export default function StudentList({ classId }) {
                 <tr key={student.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                   <td style={{ padding: "12px", fontWeight: "bold" }}>{student.roll_no}</td>
                   <td style={{ padding: "12px" }}>{student.full_name}</td>
+                  <td style={{ padding: "12px" }}>
+                    {getGroupBadge(currentClass?.group_name)}
+                  </td>
                   <td style={{ padding: "12px" }}>
                     <span style={{ 
                       padding: "4px 8px", 
@@ -165,6 +220,7 @@ export default function StudentList({ classId }) {
       {showImportModal && (
         <ExcelImportModal 
           classId={classId} 
+          classInfo={currentClass}
           onClose={() => setShowImportModal(false)} 
           onSuccess={fetchStudents}
         />
@@ -173,6 +229,7 @@ export default function StudentList({ classId }) {
       {showManualModal && (
         <ManualStudentModal 
           classId={classId} 
+          classInfo={currentClass}
           onClose={() => setShowManualModal(false)} 
           onSuccess={fetchStudents}
         />

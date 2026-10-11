@@ -18,7 +18,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
 
   if (!receiptData) return null;
 
-  const { student, payment, selectedFeesDetails, totalPayable, discount, fine } = receiptData;
+  const { student, payment, selectedFeesDetails, totalPayable, discount, fine, classInfo } = receiptData;
 
   const generateWhatsAppMessage = () => {
     let feeBreakdownText = "";
@@ -31,6 +31,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
     let text = `*স্কুল ফি জমার রসিদ*\n\n` +
       `নাম: ${student.full_name}\n` +
       `রোল: ${student.roll_no}\n` +
+      (classInfo ? `শ্রেণি: ${classInfo.class_name}${classInfo.group_name ? ` (${classInfo.group_name})` : ''}\n` : '') +
       `রসিদ নং: ${payment.receipt_no}\n` +
       `----------------------\n` +
       `*ফি এর খাতসমূহ:*\n${feeBreakdownText}\n` +
@@ -109,6 +110,14 @@ export default function ReceiptModal({ receiptData, onClose }) {
           <div style={{ background: "var(--bg-color)", padding: "10px", borderRadius: "var(--radius-sm)", marginBottom: "15px", fontSize: "13px" }}>
             <p style={{ marginBottom: "4px", display: "flex", justifyContent: "space-between" }}><strong>নাম:</strong> <span>{student.full_name}</span></p>
             <p style={{ marginBottom: "4px", display: "flex", justifyContent: "space-between" }}><strong>রোল:</strong> <span>{student.roll_no}</span></p>
+            {classInfo && (
+              <p style={{ marginBottom: "4px", display: "flex", justifyContent: "space-between" }}>
+                <strong>শ্রেণি ও বিভাগ:</strong> 
+                <span>
+                  {classInfo.class_name} {classInfo.group_name ? `(${classInfo.group_name})` : ''} {classInfo.section_name ? `[শাখা: ${classInfo.section_name}]` : ''}
+                </span>
+              </p>
+            )}
             
             {/* Fee Breakdown */}
             <div style={{ borderTop: "1px dashed var(--border-color)", borderBottom: "1px dashed var(--border-color)", padding: "8px 0", margin: "8px 0" }}>

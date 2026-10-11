@@ -221,7 +221,9 @@ export default function Home() {
             >
               <option value="">নির্বাচন করুন</option>
               {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.class_name} {c.section_name ? `(${c.section_name})` : ''} - {c.session_year}</option>
+                <option key={c.id} value={c.id}>
+                  {c.class_name} {c.group_name ? `(${c.group_name})` : ''} {c.section_name ? `[${c.section_name}]` : ''} - {c.session_year}
+                </option>
               ))}
             </select>
           </div>
@@ -274,11 +276,11 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {activeTab === "dashboard" && <Dashboard classId={selectedClassId} />}
-              {activeTab === "collection" && <CollectionForm classId={selectedClassId} />}
+              {activeTab === "dashboard" && <Dashboard classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
+              {activeTab === "collection" && <CollectionForm classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
               {activeTab === "deposit" && <DepositForm />}
-              {activeTab === "students" && <StudentList classId={selectedClassId} />}
-              {activeTab === "fees" && <FeesSetupForm classId={selectedClassId} />}
+              {activeTab === "students" && <StudentList classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
+              {activeTab === "fees" && <FeesSetupForm classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
               {activeTab === "setup" && <AcademicSetupForm />}
               {activeTab === "profile" && <ProfileSetupForm />}
             </>

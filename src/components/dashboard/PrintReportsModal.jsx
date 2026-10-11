@@ -8,13 +8,23 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export default function PrintReportsModal({ classId, onClose }) {
+export default function PrintReportsModal({ classId, classInfo, onClose }) {
   const [reportType, setReportType] = useState("collection"); // "collection" or "deposit"
   const [period, setPeriod] = useState("monthly"); // "monthly" or "yearly"
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentClass, setCurrentClass] = useState(classInfo || null);
+
+  useEffect(() => {
+    if (classInfo) {
+      setCurrentClass(classInfo);
+    } else if (classId) {
+      supabase.from("academic_classes").select("*").eq("id", classId).single()
+        .then(({ data }) => setCurrentClass(data));
+    }
+  }, [classId, classInfo]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,6 +103,7 @@ export default function PrintReportsModal({ classId, onClose }) {
         "তারিখ": new Date(item.paid_at).toLocaleDateString('bn-BD'),
         "স্টুডেন্ট": item.students?.full_name,
         "রোল": item.students?.roll_no,
+        "বিভাগ (Group)": currentClass?.group_name || "-",
         "রসিদ নং": item.receipt_no,
         "পরিমাণ (৳)": item.amount_paid
       }));
@@ -122,11 +133,12 @@ export default function PrintReportsModal({ classId, onClose }) {
     let headers = [];
     
     if (reportType === "collection") {
-      headers = [["Date", "Student Name", "Roll", "Receipt No", "Amount"]];
+      headers = [["Date", "Student Name", "Roll", "Group", "Receipt No", "Amount"]];
       tableData = data.map(item => [
         new Date(item.paid_at).toLocaleDateString('en-GB'),
         item.students?.full_name || "",
         item.students?.roll_no || "",
+        currentClass?.group_name || "-",
         item.receipt_no || "",
         item.amount_paid
       ]);
@@ -218,7 +230,12 @@ export default function PrintReportsModal({ classId, onClose }) {
         <div id="print-area" style={{ padding: "20px", overflowY: "auto", flex: 1, backgroundColor: "white" }}>
           <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <h2>{reportType === "collection" ? "স্টুডেন্ট কালেকশন রিপোর্ট" : "বিদ্যালয়ে জমা রিপোর্ট"}</h2>
-            <p style={{ margin: "5px 0" }}>
+            {currentClass && reportType === "collection" && (
+              <h4 style={{ margin: "4px 0", color: "#333" }}>
+                শ্রেণি: {currentClass.class_name} {currentClass.group_name ? `(${currentClass.group_name})` : ''} {currentClass.section_name ? `[শাখা: ${currentClass.section_name}]` : ''}
+              </h4>
+            )}
+            <p style={{ margin: "5px 0", color: "#666" }}>
               {period === "monthly" ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : `${selectedYear} সাল`}
             </p>
           </div>
@@ -237,6 +254,7 @@ export default function PrintReportsModal({ classId, onClose }) {
                       <>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>স্টুডেন্ট</th>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>রোল</th>
+                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>বিভাগ (Group)</th>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>রসিদ নং</th>
                       </>
                     ) : (
@@ -260,6 +278,7 @@ export default function PrintReportsModal({ classId, onClose }) {
                         <>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.students?.full_name}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.students?.roll_no}</td>
+                          <td style={{ padding: "6px", border: "1px solid black" }}>{currentClass?.group_name || "-"}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.receipt_no}</td>
                         </>
                       ) : (
@@ -278,7 +297,7 @@ export default function PrintReportsModal({ classId, onClose }) {
                   
                   {/* Total Row */}
                   <tr>
-                    <td colSpan={reportType === "collection" ? 4 : 4} style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold" }}>
+                    <td colSpan={reportType === "collection" ? 5 : 4} style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold" }}>
                       সর্বমোট:
                     </td>
                     <td style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold", fontSize: "16px" }}>

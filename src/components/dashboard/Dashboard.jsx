@@ -8,8 +8,9 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import ReceiptModal from "../collection/ReceiptModal";
 import PrintReportsModal from "./PrintReportsModal";
 
-export default function Dashboard({ classId }) {
+export default function Dashboard({ classId, classInfo }) {
   const { user } = useAuth();
+  const [currentClass, setCurrentClass] = useState(classInfo || null);
   
   const [stats, setStats] = useState({
     totalDue: 0,
@@ -23,6 +24,15 @@ export default function Dashboard({ classId }) {
   const [loading, setLoading] = useState(true);
   const [receiptDataToPrint, setReceiptDataToPrint] = useState(null);
   const [showReportsModal, setShowReportsModal] = useState(false);
+
+  useEffect(() => {
+    if (classInfo) {
+      setCurrentClass(classInfo);
+    } else if (classId) {
+      supabase.from("academic_classes").select("*").eq("id", classId).single()
+        .then(({ data }) => setCurrentClass(data));
+    }
+  }, [classId, classInfo]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -155,6 +165,7 @@ export default function Dashboard({ classId }) {
   const handlePrintReceipt = (payment) => {
     setReceiptDataToPrint({
       student: payment.students,
+      classInfo: currentClass,
       payment: { amount_paid: payment.amount_paid, due_remaining: payment.due_remaining, receipt_no: payment.receipt_no },
       selectedFeesDetails: null, // Custom fees aren't stored in DB, will show fallback
       totalPayable: Number(payment.amount_paid) + Number(payment.due_remaining)
@@ -295,6 +306,7 @@ export default function Dashboard({ classId }) {
                 <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                   <th style={{ padding: "10px" }}>তারিখ</th>
                   <th style={{ padding: "10px" }}>স্টুডেন্ট</th>
+                  <th style={{ padding: "10px" }}>বিভাগ (Group)</th>
                   <th style={{ padding: "10px" }}>রসিদ নং</th>
                   <th style={{ padding: "10px", textAlign: "right" }}>টাকা</th>
                   <th style={{ padding: "10px", textAlign: "right" }}>অ্যাকশন</th>
@@ -306,8 +318,24 @@ export default function Dashboard({ classId }) {
                     <tr key={payment.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                       <td style={{ padding: "10px" }}>{new Date(payment.paid_at).toLocaleDateString('bn-BD')}</td>
                       <td style={{ padding: "10px" }}>
-                        {payment.students?.full_name} <br/>
+                        <b>{payment.students?.full_name}</b> <br/>
                         <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রোল: {payment.students?.roll_no}</span>
+                      </td>
+                      <td style={{ padding: "10px" }}>
+                        {currentClass?.group_name ? (
+                          <span style={{ 
+                            padding: "2px 8px", 
+                            borderRadius: "var(--radius-full)", 
+                            fontSize: "11px", 
+                            fontWeight: "700",
+                            backgroundColor: currentClass.group_name === "Science" ? "rgba(0, 112, 243, 0.12)" : currentClass.group_name === "Commerce" ? "rgba(39, 174, 96, 0.12)" : "rgba(142, 68, 173, 0.12)",
+                            color: currentClass.group_name === "Science" ? "#0070f3" : currentClass.group_name === "Commerce" ? "#27ae60" : "#8e44ad"
+                          }}>
+                            {currentClass.group_name}
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>
+                        )}
                       </td>
                       <td style={{ padding: "10px" }}>{payment.receipt_no}</td>
                       <td style={{ padding: "10px", textAlign: "right", color: "var(--brand-success)", fontWeight: "bold" }}>{payment.amount_paid} ৳</td>
@@ -318,7 +346,7 @@ export default function Dashboard({ classId }) {
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan="5" style={{ padding: "10px", textAlign: "center", color: "var(--text-secondary)" }}>কোনো রেকর্ড পাওয়া যায়নি</td></tr>
+                  <tr><td colSpan="6" style={{ padding: "10px", textAlign: "center", color: "var(--text-secondary)" }}>কোনো রেকর্ড পাওয়া যায়নি</td></tr>
                 )}
               </tbody>
             </table>
@@ -368,6 +396,7 @@ export default function Dashboard({ classId }) {
       {showReportsModal && (
         <PrintReportsModal
           classId={classId}
+          classInfo={currentClass}
           onClose={() => setShowReportsModal(false)}
         />
       )}

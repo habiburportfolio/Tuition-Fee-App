@@ -75,7 +75,7 @@ const isDueKey = (norm) => {
   );
 };
 
-export default function ExcelImportModal({ classId, onClose, onSuccess }) {
+export default function ExcelImportModal({ classId, classInfo, onClose, onSuccess }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
@@ -278,9 +278,16 @@ export default function ExcelImportModal({ classId, onClose, onSuccess }) {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h3 style={{ margin: 0, color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
-            <UploadCloud size={24} /> এক্সেল থেকে স্টুডেন্ট আপলোড
-          </h3>
+          <div>
+            <h3 style={{ margin: 0, color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+              <UploadCloud size={24} /> এক্সেল থেকে স্টুডেন্ট আপলোড
+            </h3>
+            {classInfo && (
+              <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
+                টার্গেট ক্লাস: <b>{classInfo.class_name}</b> {classInfo.group_name ? `(${classInfo.group_name})` : ''} {classInfo.section_name ? `[শাখা: ${classInfo.section_name}]` : ''}
+              </div>
+            )}
+          </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}>
             <X size={20} />
           </button>

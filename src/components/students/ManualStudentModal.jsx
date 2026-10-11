@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 import { X, UserPlus } from "lucide-react";
 
-export default function ManualStudentModal({ classId, onClose, onSuccess }) {
+export default function ManualStudentModal({ classId, classInfo, onClose, onSuccess }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -68,9 +68,16 @@ export default function ManualStudentModal({ classId, onClose, onSuccess }) {
       <div className="card" style={{ width: "90%", maxWidth: "500px", maxHeight: "90vh", overflowY: "auto" }}>
         
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h3 style={{ margin: 0, color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
-            <UserPlus size={20} /> নতুন স্টুডেন্ট যোগ করুন
-          </h3>
+          <div>
+            <h3 style={{ margin: 0, color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+              <UserPlus size={20} /> নতুন স্টুডেন্ট যোগ করুন
+            </h3>
+            {classInfo && (
+              <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
+                ক্লাস: <b>{classInfo.class_name}</b> {classInfo.group_name ? `(${classInfo.group_name})` : ''} {classInfo.section_name ? `[শাখা: ${classInfo.section_name}]` : ''}
+              </div>
+            )}
+          </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}><X /></button>
         </div>
 
