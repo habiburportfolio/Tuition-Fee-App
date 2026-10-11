@@ -72,6 +72,14 @@ button, input, select, textarea {
   box-shadow: var(--shadow-sm);
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%);
   color: white;
