@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import ExcelImportModal from "./ExcelImportModal";
@@ -17,32 +17,7 @@ export default function StudentList({ classId }) {
   const [showManualModal, setShowManualModal] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      if (!classId) return;
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("students")
-          .select("*")
-          .eq("class_id", classId)
-          .order("roll_no", { ascending: true });
-
-        if (error) throw error;
-        setStudents(data || []);
-      } catch (error) {
-        toast.error(`❌ স্টুডেন্ট ফেচ করতে সমস্যা: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user && classId) {
-      fetchStudents();
-    }
-  }, [user, classId]);
-
-  const fetchStudentsForSubmit = async () => {
+  const fetchStudents = useCallback(async () => {
     if (!classId) return;
     setLoading(true);
     try {
@@ -51,6 +26,7 @@ export default function StudentList({ classId }) {
         .select("*")
         .eq("class_id", classId)
         .order("roll_no", { ascending: true });
+
       if (error) throw error;
       setStudents(data || []);
     } catch (error) {
@@ -58,7 +34,13 @@ export default function StudentList({ classId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [classId]);
+
+  useEffect(() => {
+    if (user && classId) {
+      fetchStudents();
+    }
+  }, [user, classId, fetchStudents]);
 
   const handleSendDueReminders = () => {
     const dueStudents = students.filter(s => s.opening_due > 0);
