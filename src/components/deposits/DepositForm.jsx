@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
-import { Landmark, CheckSquare, Square, Upload } from "lucide-react";
+import { Landmark, CheckSquare, Square, Upload, Printer, Edit2, Trash2 } from "lucide-react";
+import DepositSlipModal from "./DepositSlipModal";
 
 export default function DepositForm() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function DepositForm() {
   const [unDeposited, setUnDeposited] = useState([]);
   const [depositHistory, setDepositHistory] = useState([]);
   const [selectedPayments, setSelectedPayments] = useState([]);
+  const [activeDepositModal, setActiveDepositModal] = useState(null);
   
   const [formData, setFormData] = useState({
     deposit_channel: "Bank",
@@ -320,7 +322,7 @@ export default function DepositForm() {
               <tbody>
                 {depositHistory.map(dep => (
                   <tr key={dep.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <td style={{ padding: "10px" }}>{new Date(dep.deposited_at).toLocaleDateString('en-GB')}</td>
+                    <td style={{ padding: "10px" }}>{new Date(dep.deposited_at).toLocaleDateString('bn-BD')}</td>
                     <td style={{ padding: "10px", fontWeight: "bold" }}>{dep.deposit_channel}</td>
                     <td style={{ padding: "10px" }}>
                       {dep.bank_name || "-"}
@@ -328,13 +330,36 @@ export default function DepositForm() {
                     </td>
                     <td style={{ padding: "10px", fontWeight: "bold", color: "var(--brand-success)" }}>{dep.total_amount} ৳</td>
                     <td style={{ padding: "10px", textAlign: "right" }}>
-                      <button 
-                        onClick={() => handleDeleteDeposit(dep.id)}
-                        className="btn"
-                        style={{ padding: "4px 8px", fontSize: "12px", background: "none", border: "1px solid var(--brand-danger)", color: "var(--brand-danger)" }}
-                      >
-                        মুছে ফেলুন
-                      </button>
+                      <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                        <button 
+                          onClick={() => setActiveDepositModal(dep)}
+                          className="btn"
+                          style={{ padding: "4px 8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", background: "none", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)" }}
+                          title="ভাউচার প্রিন্ট ও খাতভিত্তিক বিবরণ"
+                        >
+                          <Printer size={13} /> প্রিন্ট
+                        </button>
+                        <button 
+                          onClick={() => {
+                            guardAction("জমা রেকর্ড এডিট", () => {
+                              setActiveDepositModal(dep);
+                            });
+                          }}
+                          className="btn"
+                          style={{ padding: "4px 8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", background: "none", border: "1px solid var(--brand-warning)", color: "var(--brand-warning)" }}
+                          title="জমা তথ্য এডিট করুন"
+                        >
+                          <Edit2 size={13} /> এডিট
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteDeposit(dep.id)}
+                          className="btn"
+                          style={{ padding: "4px 8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", background: "none", border: "1px solid var(--brand-danger)", color: "var(--brand-danger)" }}
+                          title="জমা রেকর্ড মুছে ফেলুন"
+                        >
+                          <Trash2 size={13} /> মুছুন
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -343,6 +368,18 @@ export default function DepositForm() {
           </div>
         )}
       </div>
+
+      {/* Deposit Voucher / Print / Edit Modal */}
+      {activeDepositModal && (
+        <DepositSlipModal
+          deposit={activeDepositModal}
+          onClose={() => setActiveDepositModal(null)}
+          onUpdated={(updated) => {
+            setDepositHistory(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d));
+            setActiveDepositModal(updated);
+          }}
+        />
+      )}
 
     </div>
   );

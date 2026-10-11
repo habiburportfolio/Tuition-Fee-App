@@ -4,15 +4,18 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
-import { Wallet, Landmark, AlertCircle, TrendingUp, Printer } from "lucide-react";
+import { Wallet, Landmark, AlertCircle, TrendingUp, Printer, Edit2, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import ReceiptModal from "../collection/ReceiptModal";
 import PrintReportsModal from "./PrintReportsModal";
+import DepositSlipModal from "../deposits/DepositSlipModal";
+import toast from "react-hot-toast";
 
 export default function Dashboard({ classId, classInfo }) {
   const { user } = useAuth();
   const { guardAction } = useLock();
   const [currentClass, setCurrentClass] = useState(classInfo || null);
+  const [activeDepositModal, setActiveDepositModal] = useState(null);
 
   
   const [stats, setStats] = useState({
@@ -96,7 +99,7 @@ export default function Dashboard({ classId, classInfo }) {
         // Fetch Recent Deposits (Top 10)
         const { data: depositsData } = await supabase
           .from("deposits")
-          .select("id, deposited_at, slip_number, total_amount")
+          .select("*")
           .order("deposited_at", { ascending: false })
           .limit(10);
           
@@ -152,19 +155,34 @@ export default function Dashboard({ classId, classInfo }) {
     });
   };
 
-  const handleEditDeposit = (deposit) => {
-    guardAction("জমা রেকর্ড এডিট", async () => {
-      const newAmount = window.prompt(`নতুন জমার পরিমাণ লিখুন (আগের পরিমাণ: ${deposit.total_amount} ৳):`, deposit.total_amount);
-      if (!newAmount || isNaN(newAmount) || newAmount === deposit.total_amount.toString()) return;
+  const handleDeleteDeposit = (depositId) => {
+    guardAction("জমা রেকর্ড মুছে ফেলা", async () => {
+      if (!window.confirm("আপনি কি নিশ্চিত যে এই জমা রেকর্ডটি মুছে ফেলতে চান? (এর সাথে যুক্ত পেমেন্টগুলো মুছে যাবে না, সেগুলো আবার 'হাতে থাকা ক্যাশ' এ চলে আসবে)")) return;
       
       try {
-        const { error } = await supabase.from("deposits").update({ total_amount: newAmount }).eq("id", deposit.id);
-        if (error) throw error;
+        // 1. Unlink payments
+        const { error: unlinkError } = await supabase
+          .from("payments")
+          .update({ deposit_id: null })
+          .eq("deposit_id", depositId);
         
-        alert("জমার রেকর্ড সফলভাবে আপডেট করা হয়েছে!");
-        window.location.reload();
-      } catch(err) {
-        alert(`এরর: ${err.message}`);
+        if (unlinkError) throw unlinkError;
+
+        // 2. Delete deposit record
+        const { error: delError } = await supabase
+          .from("deposits")
+          .delete()
+          .eq("id", depositId);
+          
+        if (delError) throw delError;
+        
+        toast.success("জমা রেকর্ডটি সফলভাবে মুছে ফেলা হয়েছে!");
+        setStats(prev => ({
+          ...prev,
+          deposits: prev.deposits.filter(d => d.id !== depositId)
+        }));
+      } catch (error) {
+        toast.error(`❌ ডিলিট করতে সমস্যা: ${error.message}`);
       }
     });
   };
@@ -406,7 +424,33 @@ export default function Dashboard({ classId, classInfo }) {
                       <td style={{ padding: "10px" }}>{deposit.slip_number || '-'}</td>
                       <td style={{ padding: "10px", textAlign: "right", color: "var(--brand-success)", fontWeight: "bold" }}>{deposit.total_amount} ৳</td>
                       <td style={{ padding: "10px", textAlign: "right" }}>
-                        <button onClick={() => handleEditDeposit(deposit)} style={{ background: "none", border: "1px solid var(--brand-warning)", color: "var(--brand-warning)", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "12px" }}>Edit</button>
+                        <div style={{ display: "flex", gap: "5px", justifyContent: "flex-end" }}>
+                          <button 
+                            onClick={() => setActiveDepositModal(deposit)} 
+                            style={{ background: "none", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px" }}
+                            title="ভাউচার প্রিন্ট ও খাতভিত্তিক বিবরণ"
+                          >
+                            <Printer size={12} /> Print
+                          </button>
+                          <button 
+                            onClick={() => {
+                              guardAction("জমা রেকর্ড এডিট", () => {
+                                setActiveDepositModal(deposit);
+                              });
+                            }} 
+                            style={{ background: "none", border: "1px solid var(--brand-warning)", color: "var(--brand-warning)", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px" }}
+                            title="জমা তথ্য এডিট করুন"
+                          >
+                            <Edit2 size={12} /> Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteDeposit(deposit.id)} 
+                            style={{ background: "none", border: "1px solid var(--brand-danger)", color: "var(--brand-danger)", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px" }}
+                            title="জমা রেকর্ড মুছে ফেলুন"
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -423,6 +467,20 @@ export default function Dashboard({ classId, classInfo }) {
         <ReceiptModal 
           receiptData={receiptDataToPrint} 
           onClose={() => setReceiptDataToPrint(null)} 
+        />
+      )}
+
+      {activeDepositModal && (
+        <DepositSlipModal
+          deposit={activeDepositModal}
+          onClose={() => setActiveDepositModal(null)}
+          onUpdated={(updated) => {
+            setStats(prev => ({
+              ...prev,
+              deposits: prev.deposits.map(d => d.id === updated.id ? { ...d, ...updated } : d)
+            }));
+            setActiveDepositModal(updated);
+          }}
         />
       )}
 

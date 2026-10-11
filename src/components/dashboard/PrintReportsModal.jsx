@@ -78,6 +78,49 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
               return date.getFullYear() === selectedYear && (date.getMonth() + 1) === selectedMonth;
             }
           });
+
+          // Fetch linked payments to construct fee breakdown (খাতসমূহের বিবরণ)
+          const depositIds = filtered.map(d => d.id);
+          if (depositIds.length > 0) {
+            const { data: depPayments } = await supabase
+              .from("payments")
+              .select("deposit_id, amount_paid, payment_method")
+              .in("deposit_id", depositIds)
+              .eq("is_voided", false);
+
+            if (depPayments) {
+              const breakdownMap = {};
+              depPayments.forEach(p => {
+                if (!breakdownMap[p.deposit_id]) breakdownMap[p.deposit_id] = {};
+                let parsed = false;
+                if (p.payment_method) {
+                  try {
+                    const meta = JSON.parse(p.payment_method);
+                    if (meta && Array.isArray(meta.items)) {
+                      parsed = true;
+                      meta.items.forEach(it => {
+                        let kName = it.name || "সাধারণ ফি";
+                        if (kName === "পূর্বের বকেয়া আদায়") kName = "মাসিক বেতন ও পূর্বের বকেয়া";
+                        breakdownMap[p.deposit_id][kName] = (breakdownMap[p.deposit_id][kName] || 0) + Number(it.amount || 0);
+                      });
+                      if (meta.fine && Number(meta.fine) > 0) {
+                        breakdownMap[p.deposit_id]["বিলম্ব ফি"] = (breakdownMap[p.deposit_id]["বিলম্ব ফি"] || 0) + Number(meta.fine);
+                      }
+                    }
+                  } catch {
+                    // plain
+                  }
+                }
+                if (!parsed) {
+                  breakdownMap[p.deposit_id]["মাসিক বেতন ও বকেয়া ফি"] = (breakdownMap[p.deposit_id]["মাসিক বেতন ও বকেয়া ফি"] || 0) + Number(p.amount_paid || 0);
+                }
+              });
+
+              filtered.forEach(d => {
+                d.khatSummary = breakdownMap[d.id] ? Object.entries(breakdownMap[d.id]).map(([name, amt]) => `${name}: ${amt}৳`).join(", ") : "মাসিক বেতন ও ফি আদায়";
+              });
+            }
+          }
           
           setData(filtered);
         }
@@ -114,6 +157,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
         "মাধ্যম": item.deposit_channel,
         "ব্যাংকের নাম": item.bank_name || "-",
         "স্লিপ নং": item.slip_number || "-",
+        "ফি এর খাতসমূহ": item.khatSummary || "মাসিক বেতন ও বকেয়া ফি",
         "পরিমাণ (৳)": item.total_amount
       }));
     }
@@ -257,8 +301,9 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                     ) : (
                       <>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>মাধ্যম</th>
-                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>ব্যাংকের নাম</th>
+                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>ব্যাংক/শাখা</th>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>স্লিপ নং</th>
+                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>ফি এর খাতসমূহ (জমার বিবরণ)</th>
                       </>
                     )}
                     <th style={{ padding: "8px", border: "1px solid black", textAlign: "right" }}>পরিমাণ (৳)</th>
@@ -283,6 +328,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.deposit_channel}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.bank_name || "-"}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.slip_number || "-"}</td>
+                          <td style={{ padding: "6px", border: "1px solid black", fontSize: "12px" }}>{item.khatSummary || "মাসিক বেতন ও বকেয়া ফি"}</td>
                         </>
                       )}
                       
@@ -294,7 +340,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                   
                   {/* Total Row */}
                   <tr>
-                    <td colSpan={reportType === "collection" ? 5 : 4} style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold" }}>
+                    <td colSpan={5} style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold" }}>
                       সর্বমোট:
                     </td>
                     <td style={{ padding: "8px", border: "1px solid black", textAlign: "right", fontWeight: "bold", fontSize: "16px" }}>
