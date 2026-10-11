@@ -182,9 +182,11 @@ input:focus, select:focus {
     top: 0;
     width: 100%;
     margin: 0;
-    padding: 10px 20px;
     background: #ffffff !important;
     color: #000000 !important;
+  }
+  #print-area, .printable-area {
+    padding: 10px 20px;
   }
   .card, .card-glass {
     box-shadow: none !important;

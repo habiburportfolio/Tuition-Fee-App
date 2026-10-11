@@ -81,7 +81,7 @@ export default function Dashboard({ classId, classInfo }) {
         if (studentIds.length > 0) {
           const { data: classPayments } = await supabase
             .from("payments")
-            .select("amount_paid, due_remaining, deposit_id, receipt_no, paid_at, id, students(id, full_name, roll_no, parent_phone)")
+            .select("amount_paid, due_remaining, deposit_id, receipt_no, paid_at, id, payment_method, students(id, full_name, roll_no, parent_phone)")
             .in("student_id", studentIds)
             .eq("is_voided", false)
             .order("paid_at", { ascending: false });
