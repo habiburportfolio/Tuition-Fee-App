@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
 import { Landmark, CheckSquare, Square, Upload } from "lucide-react";
 
 export default function DepositForm() {
   const { user } = useAuth();
+  const { guardAction } = useLock();
   const [loading, setLoading] = useState(false);
+
   const [unDeposited, setUnDeposited] = useState([]);
   const [depositHistory, setDepositHistory] = useState([]);
   const [selectedPayments, setSelectedPayments] = useState([]);
@@ -142,35 +146,37 @@ export default function DepositForm() {
     }
   };
 
-  const handleDeleteDeposit = async (depositId) => {
-    if (!window.confirm("আপনি কি নিশ্চিত যে এই জমা রেকর্ডটি মুছে ফেলতে চান? (এর সাথে যুক্ত পেমেন্টগুলো মুছে যাবে না, সেগুলো আবার 'হাতে থাকা ক্যাশ' এ চলে আসবে)")) return;
-    
-    try {
-      // 1. Unlink payments
-      const { error: unlinkError } = await supabase
-        .from("payments")
-        .update({ deposit_id: null })
-        .eq("deposit_id", depositId);
+  const handleDeleteDeposit = (depositId) => {
+    guardAction("জমা রেকর্ড মুছে ফেলা", async () => {
+      if (!window.confirm("আপনি কি নিশ্চিত যে এই জমা রেকর্ডটি মুছে ফেলতে চান? (এর সাথে যুক্ত পেমেন্টগুলো মুছে যাবে না, সেগুলো আবার 'হাতে থাকা ক্যাশ' এ চলে আসবে)")) return;
       
-      if (unlinkError) throw unlinkError;
-
-      // 2. Delete deposit record
-      const { error: delError } = await supabase
-        .from("deposits")
-        .delete()
-        .eq("id", depositId);
+      try {
+        // 1. Unlink payments
+        const { error: unlinkError } = await supabase
+          .from("payments")
+          .update({ deposit_id: null })
+          .eq("deposit_id", depositId);
         
-      if (delError) {
-        // If RLS prevents delete, it will fail here. We catch it.
-        throw delError;
+        if (unlinkError) throw unlinkError;
+
+        // 2. Delete deposit record
+        const { error: delError } = await supabase
+          .from("deposits")
+          .delete()
+          .eq("id", depositId);
+          
+        if (delError) {
+          throw delError;
+        }
+        
+        toast.success("জমা রেকর্ডটি সফলভাবে মুছে ফেলা হয়েছে!");
+        fetchUnDepositedForSubmit();
+      } catch (error) {
+        toast.error(`❌ ডিলিট করতে সমস্যা: ${error.message}`);
       }
-      
-      toast.success("জমা রেকর্ডটি সফলভাবে মুছে ফেলা হয়েছে!");
-      fetchUnDepositedForSubmit();
-    } catch (error) {
-      toast.error(`❌ ডিলিট করতে সমস্যা: ${error.message}`);
-    }
+    });
   };
+
 
   return (
     <div className="card" style={{ marginTop: "20px" }}>

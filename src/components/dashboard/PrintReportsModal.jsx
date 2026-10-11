@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import SchoolPrintHeader from "@/components/common/SchoolPrintHeader";
 
 export default function PrintReportsModal({ classId, classInfo, onClose }) {
   const [reportType, setReportType] = useState("collection"); // "collection" or "deposit"
@@ -227,18 +228,14 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
         </div>
 
         {/* Printable Area */}
-        <div id="print-area" style={{ padding: "20px", overflowY: "auto", flex: 1, backgroundColor: "white" }}>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <h2>{reportType === "collection" ? "স্টুডেন্ট কালেকশন রিপোর্ট" : "বিদ্যালয়ে জমা রিপোর্ট"}</h2>
-            {currentClass && reportType === "collection" && (
-              <h4 style={{ margin: "4px 0", color: "#333" }}>
-                শ্রেণি: {currentClass.class_name} {currentClass.group_name ? `(${currentClass.group_name})` : ''} {currentClass.section_name ? `[শাখা: ${currentClass.section_name}]` : ''}
-              </h4>
-            )}
-            <p style={{ margin: "5px 0", color: "#666" }}>
-              {period === "monthly" ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : `${selectedYear} সাল`}
-            </p>
-          </div>
+        <div id="print-area" style={{ padding: "20px", overflowY: "auto", flex: 1, backgroundColor: "white", color: "#111" }}>
+          {/* School Header (Requirement 4) */}
+          <SchoolPrintHeader
+            title={reportType === "collection" ? "স্টুডেন্ট ফি কালেকশন রিপোর্ট" : "বিদ্যালয়ে জমা রিপোর্ট"}
+            subtitle={currentClass && reportType === "collection" ? `শ্রেণি: ${currentClass.class_name} ${currentClass.group_name ? `(${currentClass.group_name})` : ""} ${currentClass.section_name ? `[শাখা: ${currentClass.section_name}]` : ""}` : null}
+            extraInfo={`সময়কাল: ${period === "monthly" ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : `${selectedYear} সাল`}`}
+          />
+
 
           {loading ? (
             <div style={{ textAlign: "center", padding: "20px" }}>লোড হচ্ছে...</div>

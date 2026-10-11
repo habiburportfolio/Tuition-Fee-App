@@ -3,11 +3,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
 
 export default function FeesSetupForm({ classId }) {
   const { user } = useAuth();
+  const { guardAction } = useLock();
   const [loading, setLoading] = useState(false);
+
   const [fees, setFees] = useState([]);
   const [formData, setFormData] = useState({
     fee_type: "Monthly",
@@ -83,17 +86,20 @@ export default function FeesSetupForm({ classId }) {
     }
   };
 
-  const handleDelete = async (feeId) => {
-    if (!window.confirm("আপনি কি নিশ্চিত যে এই ফি টি মুছে ফেলতে চান?")) return;
-    try {
-      const { error } = await supabase.from("fees_setup").delete().eq("id", feeId);
-      if (error) throw error;
-      toast.success("ফি সফলভাবে মুছে ফেলা হয়েছে!");
-      fetchFeesForSubmit();
-    } catch (error) {
-      toast.error(`❌ ডিলিট এরর: ${error.message}`);
-    }
+  const handleDelete = (feeId) => {
+    guardAction("ফি মুছে ফেলা", async () => {
+      if (!window.confirm("আপনি কি নিশ্চিত যে এই ফি টি মুছে ফেলতে চান?")) return;
+      try {
+        const { error } = await supabase.from("fees_setup").delete().eq("id", feeId);
+        if (error) throw error;
+        toast.success("ফি সফলভাবে মুছে ফেলা হয়েছে!");
+        fetchFeesForSubmit();
+      } catch (error) {
+        toast.error(`❌ ডিলিট এরর: ${error.message}`);
+      }
+    });
   };
+
 
   return (
     <div className="card" style={{ marginTop: "20px" }}>

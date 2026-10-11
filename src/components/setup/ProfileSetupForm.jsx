@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
-import { Settings, Save, Upload } from "lucide-react";
+import { Settings, Save, Upload, Lock, Unlock, KeyRound, ShieldCheck } from "lucide-react";
 
 export default function ProfileSetupForm() {
   const { user } = useAuth();
+  const { isLocked, lock, openUnlockModal, updatePin } = useLock();
+  const [oldPin, setOldPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [showPinChange, setShowPinChange] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -224,6 +231,118 @@ export default function ProfileSetupForm() {
           </button>
         </div>
       </form>
+
+      {/* Requirement 8: Settings Lock / Unlock System for Data Edits & Deletes */}
+      <div style={{ marginTop: "35px", borderTop: "2px dashed var(--border-color)", paddingTop: "25px" }}>
+        <h4 style={{ color: "var(--brand-primary)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "18px" }}>
+          <ShieldCheck size={20} /> ডাটা এডিট ও ডিলিট লক সিস্টেম (Data Security Lock)
+        </h4>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "18px", lineHeight: "1.6" }}>
+          অননুমোদিত বা ভুলবশত কোনো শিক্ষার্থীর তথ্য, ফি, ক্লাস কিংবা পেমেন্ট রেকর্ড এডিট বা মুছে ফেলা ঠেকাতে এই লক সিস্টেম কাজ করে। লক অন থাকলে কোনো ফাইল এডিট বা ডিলিট করা যাবে না।
+        </p>
+
+        <div style={{
+          background: isLocked ? "rgba(231, 76, 60, 0.08)" : "rgba(46, 204, 113, 0.08)",
+          border: `1px solid ${isLocked ? "var(--brand-danger)" : "var(--brand-success)"}`,
+          padding: "16px",
+          borderRadius: "var(--radius-md)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "15px"
+        }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "800", fontSize: "16px", color: isLocked ? "var(--brand-danger)" : "var(--brand-success)" }}>
+              {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+              <span>{isLocked ? "বর্তমানে ডাটা লক করা আছে (সক্রিয়)" : "বর্তমানে ডাটা আনলক করা আছে (এডিট/ডিলিট চালু)"}</span>
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>
+              {isLocked
+                ? "লক থাকা অবস্থায় কোনো ডাটা বা রেকর্ড মুছে ফেলা বা পরিবর্তন করা যাবে না।"
+                : "সতর্কতা: আনলক থাকা অবস্থায় যেকোনো অনুমোদিত ইউজার এডিট ও ডিলিট করতে পারবেন। কাজ শেষ হলে পুনরায় লক করুন।"}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            {isLocked ? (
+              <button
+                type="button"
+                onClick={() => openUnlockModal()}
+                className="btn btn-primary"
+                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px" }}
+              >
+                <Unlock size={16} /> পিন দিয়ে আনলক করুন
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={lock}
+                className="btn btn-danger"
+                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px" }}
+              >
+                <Lock size={16} /> এখনই লক করুন
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowPinChange(!showPinChange)}
+              className="btn"
+              style={{ display: "flex", alignItems: "center", gap: "6px", background: "transparent", border: "1px solid var(--border-color)", padding: "10px 14px", color: "var(--text-primary)" }}
+            >
+              <KeyRound size={16} /> {showPinChange ? "পিন ফর্ম বন্ধ" : "পিন কোড পরিবর্তন"}
+            </button>
+          </div>
+        </div>
+
+        {/* Change PIN Form */}
+        {showPinChange && (
+          <div style={{ marginTop: "15px", background: "var(--card-bg)", padding: "16px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+            <h5 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: "700" }}>লক সিকিউরিটি পিন পরিবর্তন (ডিফল্ট পিন: 1234)</h5>
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div style={{ flex: 1, minWidth: "140px" }}>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "12px", fontWeight: "bold" }}>বর্তমান পিন *</label>
+                <input
+                  type="password"
+                  value={oldPin}
+                  onChange={(e) => setOldPin(e.target.value)}
+                  placeholder="বর্তমান পিন দিন"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <div style={{ flex: 1, minWidth: "140px" }}>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "12px", fontWeight: "bold" }}>নতুন পিন (কমপক্ষে ৪ সংখ্যা) *</label>
+                <input
+                  type="password"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value)}
+                  placeholder="নতুন পিন দিন"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const success = updatePin(oldPin, newPin);
+                  if (success) {
+                    setOldPin("");
+                    setNewPin("");
+                    setShowPinChange(false);
+                  }
+                }}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px" }}
+              >
+                পিন সংরক্ষণ করুন
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

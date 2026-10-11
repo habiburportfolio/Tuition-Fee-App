@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import { Wallet, Landmark, AlertCircle, TrendingUp, Printer } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import ReceiptModal from "../collection/ReceiptModal";
@@ -10,7 +11,9 @@ import PrintReportsModal from "./PrintReportsModal";
 
 export default function Dashboard({ classId, classInfo }) {
   const { user } = useAuth();
+  const { guardAction } = useLock();
   const [currentClass, setCurrentClass] = useState(classInfo || null);
+
   
   const [stats, setStats] = useState({
     totalDue: 0,
@@ -122,55 +125,85 @@ export default function Dashboard({ classId, classInfo }) {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleEditPayment = async (payment) => {
-    const newAmount = window.prompt(`নতুন টাকার পরিমাণ লিখুন (আগের পরিমাণ: ${payment.amount_paid} ৳):`, payment.amount_paid);
-    if (!newAmount || isNaN(newAmount) || newAmount === payment.amount_paid.toString()) return;
-    
-    const diff = Number(payment.amount_paid) - Number(newAmount); 
-    
-    try {
-      const { error: payErr } = await supabase.from("payments").update({ amount_paid: newAmount }).eq("id", payment.id);
-      if (payErr) throw payErr;
+  const handleEditPayment = (payment) => {
+    guardAction("পেমেন্ট রেকর্ড এডিট", async () => {
+      const newAmount = window.prompt(`নতুন টাকার পরিমাণ লিখুন (আগের পরিমাণ: ${payment.amount_paid} ৳):`, payment.amount_paid);
+      if (!newAmount || isNaN(newAmount) || newAmount === payment.amount_paid.toString()) return;
       
-      const { data: st, error: stErr } = await supabase.from("students").select("opening_due").eq("id", payment.students.id).single();
-      if (stErr) throw stErr;
+      const diff = Number(payment.amount_paid) - Number(newAmount); 
       
-      const newDue = Number(st.opening_due) + diff;
-      
-      await supabase.from("students").update({ opening_due: newDue }).eq("id", payment.students.id);
-      await supabase.from("payments").update({ due_remaining: newDue }).eq("id", payment.id);
-      
-      alert("পেমেন্ট সফলভাবে আপডেট করা হয়েছে!");
-      window.location.reload();
-    } catch(err) {
-      alert(`এরর: ${err.message}`);
-    }
+      try {
+        const { error: payErr } = await supabase.from("payments").update({ amount_paid: newAmount }).eq("id", payment.id);
+        if (payErr) throw payErr;
+        
+        const { data: st, error: stErr } = await supabase.from("students").select("opening_due").eq("id", payment.students.id).single();
+        if (stErr) throw stErr;
+        
+        const newDue = Number(st.opening_due) + diff;
+        
+        await supabase.from("students").update({ opening_due: newDue }).eq("id", payment.students.id);
+        await supabase.from("payments").update({ due_remaining: newDue }).eq("id", payment.id);
+        
+        alert("পেমেন্ট সফলভাবে আপডেট করা হয়েছে!");
+        window.location.reload();
+      } catch(err) {
+        alert(`এরর: ${err.message}`);
+      }
+    });
   };
 
-  const handleEditDeposit = async (deposit) => {
-    const newAmount = window.prompt(`নতুন জমার পরিমাণ লিখুন (আগের পরিমাণ: ${deposit.total_amount} ৳):`, deposit.total_amount);
-    if (!newAmount || isNaN(newAmount) || newAmount === deposit.total_amount.toString()) return;
-    
-    try {
-      const { error } = await supabase.from("deposits").update({ total_amount: newAmount }).eq("id", deposit.id);
-      if (error) throw error;
+  const handleEditDeposit = (deposit) => {
+    guardAction("জমা রেকর্ড এডিট", async () => {
+      const newAmount = window.prompt(`নতুন জমার পরিমাণ লিখুন (আগের পরিমাণ: ${deposit.total_amount} ৳):`, deposit.total_amount);
+      if (!newAmount || isNaN(newAmount) || newAmount === deposit.total_amount.toString()) return;
       
-      alert("জমার রেকর্ড সফলভাবে আপডেট করা হয়েছে!");
-      window.location.reload();
-    } catch(err) {
-      alert(`এরর: ${err.message}`);
-    }
+      try {
+        const { error } = await supabase.from("deposits").update({ total_amount: newAmount }).eq("id", deposit.id);
+        if (error) throw error;
+        
+        alert("জমার রেকর্ড সফলভাবে আপডেট করা হয়েছে!");
+        window.location.reload();
+      } catch(err) {
+        alert(`এরর: ${err.message}`);
+      }
+    });
   };
 
   const handlePrintReceipt = (payment) => {
+    let details = null;
+    let fine = 0;
+    let discount = 0;
+    if (payment.payment_method) {
+      try {
+        const meta = JSON.parse(payment.payment_method);
+        if (meta) {
+          details = meta.items;
+          fine = meta.fine || 0;
+          discount = meta.discount || 0;
+        }
+      } catch {
+        // Plain string
+      }
+    }
+
     setReceiptDataToPrint({
       student: payment.students,
       classInfo: currentClass,
-      payment: { amount_paid: payment.amount_paid, due_remaining: payment.due_remaining, receipt_no: payment.receipt_no },
-      selectedFeesDetails: null, // Custom fees aren't stored in DB, will show fallback
-      totalPayable: Number(payment.amount_paid) + Number(payment.due_remaining)
+      payment: {
+        id: payment.id,
+        amount_paid: payment.amount_paid,
+        due_remaining: payment.due_remaining,
+        receipt_no: payment.receipt_no,
+        paid_at: payment.paid_at,
+        payment_method: payment.payment_method
+      },
+      selectedFeesDetails: details,
+      totalPayable: Number(payment.amount_paid) + Number(payment.due_remaining) + fine,
+      fine,
+      discount
     });
   };
+
 
   if (loading) {
     return <div style={{ padding: "20px", textAlign: "center" }}>লোড হচ্ছে...</div>;

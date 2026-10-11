@@ -110,14 +110,17 @@ export default function ManualStudentModal({ classId, classInfo, onClose, onSucc
               <input type="number" name="opening_due" value={formData.opening_due} onChange={handleChange} style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>বৃত্তি/ছাড় (Waiver)</label>
+              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>বৃত্তি/ছাড় সুবিধা (Waiver)</label>
               <select name="waiver_status" value={formData.waiver_status} onChange={handleChange} style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
-                <option value="None">নেই (None)</option>
-                <option value="Half Free">অর্ধ-বেতন (Half Free)</option>
-                <option value="Full Free">বিনা-বেতন (Full Free)</option>
+                <option value="None">নেই (সাধারণ শিক্ষার্থী)</option>
+                <option value="উপবৃত্তিপ্রাপ্ত (বেতন ফ্রি)">🎓 উপবৃত্তিপ্রাপ্ত (বেতন ফ্রি)</option>
+                <option value="বৃত্তিপ্রাপ্ত (বেতন ফ্রি)">🏆 বৃত্তিপ্রাপ্ত (বেতন ফ্রি)</option>
+                <option value="Full Free">বিনা-বেতন (Full Free - ১০০% ছাড়)</option>
+                <option value="Half Free">অর্ধ-বেতন (Half Free - ৫০% ছাড়)</option>
                 <option value="Special">বিশেষ ছাড় (Special)</option>
               </select>
             </div>
+
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>

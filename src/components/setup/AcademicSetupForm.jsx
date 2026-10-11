@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
 import { Trash2 } from "lucide-react";
 
 export default function AcademicSetupForm() {
   const { user, userRole } = useAuth();
+  const { guardAction } = useLock();
   const [loading, setLoading] = useState(false);
+
   const [classes, setClasses] = useState([]);
   const [formData, setFormData] = useState({
     session_year: new Date().getFullYear().toString(),
@@ -89,18 +92,21 @@ export default function AcademicSetupForm() {
     }
   };
 
-  const handleDeleteClass = async (classId) => {
-    if (!window.confirm("আপনি কি নিশ্চিত যে এই ক্লাসটি ডিলিট করতে চান? (এর সাথে যুক্ত সব স্টুডেন্ট এবং পেমেন্ট রেকর্ডও ডিলিট হয়ে যাবে)")) return;
-    
-    try {
-      const { error } = await supabase.from("academic_classes").delete().eq("id", classId);
-      if (error) throw error;
-      toast.success("ক্লাস সফলভাবে ডিলিট হয়েছে!");
-      fetchClasses();
-    } catch (error) {
-      toast.error(`❌ ডিলিট এরর: ${error.message}`);
-    }
+  const handleDeleteClass = (classId) => {
+    guardAction("ক্লাস ডিলিট", async () => {
+      if (!window.confirm("আপনি কি নিশ্চিত যে এই ক্লাসটি ডিলিট করতে চান? (এর সাথে যুক্ত সব স্টুডেন্ট এবং পেমেন্ট রেকর্ডও ডিলিট হয়ে যাবে)")) return;
+      
+      try {
+        const { error } = await supabase.from("academic_classes").delete().eq("id", classId);
+        if (error) throw error;
+        toast.success("ক্লাস সফলভাবে ডিলিট হয়েছে!");
+        fetchClasses();
+      } catch (error) {
+        toast.error(`❌ ডিলিট এরর: ${error.message}`);
+      }
+    });
   };
+
 
   return (
     <div style={{ maxWidth: "800px", margin: "20px auto", display: "flex", flexDirection: "column", gap: "20px" }}>

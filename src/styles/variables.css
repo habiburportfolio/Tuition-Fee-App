@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   /* Brand Colors - Vibrant & Premium */
   --brand-primary: hsl(221, 83%, 53%);
   --brand-primary-hover: hsl(221, 83%, 47%);
@@ -44,6 +45,7 @@
 }
 
 [data-theme='dark'] {
+  color-scheme: dark;
   --brand-primary: hsl(217, 91%, 60%);
   --brand-primary-hover: hsl(217, 91%, 65%);
   --brand-primary-light: hsl(217, 91%, 20%);
@@ -67,3 +69,4 @@
   --glass-bg: rgba(30, 41, 59, 0.7);
   --glass-border: rgba(255, 255, 255, 0.1);
 }
+

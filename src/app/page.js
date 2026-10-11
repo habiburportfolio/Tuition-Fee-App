@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLock } from "@/context/LockContext";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff, Settings } from "lucide-react";
+import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff, Settings, Lock, Unlock } from "lucide-react";
 
 // Components
 import AcademicSetupForm from "@/components/setup/AcademicSetupForm";
@@ -17,6 +18,8 @@ import ProfileSetupForm from "@/components/setup/ProfileSetupForm";
 
 export default function Home() {
   const { user, login, logout, loading: authLoading } = useAuth();
+  const { isLocked, lock, openUnlockModal } = useLock();
+
   
   // Auth state
   const [email, setEmail] = useState("");
@@ -228,6 +231,27 @@ export default function Home() {
             </select>
           </div>
 
+          <button
+            onClick={isLocked ? () => openUnlockModal() : lock}
+            className="btn"
+            style={{
+              padding: "7px 12px",
+              borderRadius: "var(--radius-full)",
+              fontSize: "12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: isLocked ? "rgba(231, 76, 60, 0.12)" : "rgba(46, 204, 113, 0.12)",
+              border: `1px solid ${isLocked ? "var(--brand-danger)" : "var(--brand-success)"}`,
+              color: isLocked ? "var(--brand-danger)" : "var(--brand-success)",
+              fontWeight: "700"
+            }}
+            title={isLocked ? "ডাটা লক করা আছে (ক্লিক করে আনলক করুন)" : "ডাটা আনলক করা আছে (ক্লিক করে লক করুন)"}
+          >
+            {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+            <span>{isLocked ? "সিস্টেম লক" : "সিস্টেম আনলক"}</span>
+          </button>
+
           <button onClick={() => setShowPasswordModal(true)} className="btn" style={{ padding: "8px", background: "transparent", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)" }} title="পাসওয়ার্ড পরিবর্তন করুন">
             Change Password
           </button>
@@ -240,6 +264,7 @@ export default function Home() {
           </button>
         </div>
       </nav>
+
 
       <div style={{ display: "flex", flex: 1, maxWidth: "1200px", margin: "0 auto", width: "100%", padding: "20px", gap: "20px", flexDirection: "column" }}>
         
