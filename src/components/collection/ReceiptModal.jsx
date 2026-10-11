@@ -53,10 +53,29 @@ export default function ReceiptModal({ receiptData, onClose }) {
     }
   }
 
+  // Refine fee items: if items are empty or contain only generic "পূর্বের বকেয়া আদায়", format nicely with class info
+  if (!resolvedFees || resolvedFees.length === 0) {
+    resolvedFees = [
+      {
+        name: "মাসিক বেতন / টিউশন ফি বকেয়া",
+        amount: Number(payment.amount_paid)
+      }
+    ];
+  } else {
+    // If fee item is literally "পূর্বের বকেয়া আদায়", make it clearer and more professional
+    resolvedFees = resolvedFees.map(item => {
+      if (item.name === "পূর্বের বকেয়া আদায়") {
+        return {
+          ...item,
+          name: "মাসিক বেতন ও পূর্বের বকেয়া ফি"
+        };
+      }
+      return item;
+    });
+  }
+
   // Base fee subtotal (without fine)
-  const feeSubtotal = resolvedFees && resolvedFees.length > 0
-    ? resolvedFees.reduce((sum, f) => sum + Number(f.amount || 0), 0)
-    : (student?.opening_due ? Number(student.opening_due) : Number(payment.amount_paid));
+  const feeSubtotal = resolvedFees.reduce((sum, f) => sum + Number(f.amount || 0), 0);
 
   const calculatedTotalPayable = totalPayable || (feeSubtotal + Number(resolvedFine || 0));
 

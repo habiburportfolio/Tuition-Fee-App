@@ -242,7 +242,7 @@ export default function CollectionForm({ classId, classInfo }) {
       // If no new fees selected but paid previous due
       if (feeDetails.length === 0 && previousDue > 0) {
         feeDetails.push({
-          name: "পূর্বের বকেয়া আদায়",
+          name: "মাসিক বেতন ও বকেয়া ফি",
           amount: Math.min(paid, previousDue)
         });
       }
