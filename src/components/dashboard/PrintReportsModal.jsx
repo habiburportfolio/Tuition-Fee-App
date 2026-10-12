@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Printer, X, Download, FileText } from "lucide-react";
+import { Printer, X, Download, FileText, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 import SchoolPrintHeader from "@/components/common/SchoolPrintHeader";
 
 export default function PrintReportsModal({ classId, classInfo, onClose }) {
@@ -168,43 +168,119 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
     XLSX.writeFile(wb, `${reportType}_report.xlsx`);
   };
 
-  const handleExportPDF = () => {
-    if (data.length === 0) return toast.error("কোনো ডাটা নেই");
-    const doc = new jsPDF();
-    
-    doc.text(reportType === "collection" ? "Student Collection Report" : "Deposit Report", 14, 10);
-    
-    let tableData = [];
-    let headers = [];
-    
-    if (reportType === "collection") {
-      headers = [["Date", "Student Name", "Roll", "Group", "Receipt No", "Amount"]];
-      tableData = data.map(item => [
-        new Date(item.paid_at).toLocaleDateString('en-GB'),
-        item.students?.full_name || "",
-        item.students?.roll_no || "",
-        currentClass?.group_name || "-",
-        item.receipt_no || "",
-        item.amount_paid
-      ]);
-    } else {
-      headers = [["Date", "Channel", "Bank", "Slip No", "Amount"]];
-      tableData = data.map(item => [
-        new Date(item.deposited_at).toLocaleDateString('en-GB'),
-        item.deposit_channel,
-        item.bank_name || "-",
-        item.slip_number || "-",
-        item.total_amount
-      ]);
-    }
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
-    autoTable(doc, {
-      head: headers,
-      body: tableData,
-      startY: 20,
-    });
-    
-    doc.save(`${reportType}_report.pdf`);
+  const handleExportPDF = async () => {
+    if (data.length === 0) return toast.error("কোনো ডাটা নেই");
+    const printArea = document.getElementById("print-area");
+    if (!printArea) return toast.error("প্রিন্ট এরিয়া পাওয়া যায়নি");
+
+    setGeneratingPdf(true);
+    const toastId = toast.loading("পিডিএফ প্রস্তুত করা হচ্ছে...");
+
+    try {
+      // Offscreen clone with consistent A4 printable width
+      const clone = printArea.cloneNode(true);
+      clone.style.width = "794px";
+      clone.style.minWidth = "794px";
+      clone.style.maxWidth = "794px";
+      clone.style.height = "auto";
+      clone.style.maxHeight = "none";
+      clone.style.overflow = "visible";
+      clone.style.position = "fixed";
+      clone.style.top = "-9999px";
+      clone.style.left = "0";
+      clone.style.zIndex = "-9999";
+      clone.style.backgroundColor = "#ffffff";
+      clone.style.color = "#111111";
+      clone.style.boxSizing = "border-box";
+      clone.style.padding = "24px";
+
+      document.body.appendChild(clone);
+
+      // Measure row boundaries to avoid slicing rows across pages
+      const cloneRect = clone.getBoundingClientRect();
+      const rows = Array.from(clone.querySelectorAll("tr"));
+      const rowBottomOffsets = rows.map((r) => {
+        const rRect = r.getBoundingClientRect();
+        return rRect.bottom - cloneRect.top;
+      });
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: 794,
+        windowWidth: 1024,
+      });
+
+      document.body.removeChild(clone);
+
+      const doc = new jsPDF("p", "mm", "a4");
+      const pdfWidth = 190; // A4 (210mm) - 2 * 10mm margins
+      const pageHeightMm = 277; // A4 (297mm) - 2 * 10mm margins
+      const pxPerMm = (canvas.width / 2) / pdfWidth; // canvas scale was 2
+      const pageHeightCssPx = pageHeightMm * pxPerMm;
+
+      let currentTopCssPx = 0;
+      const totalCssHeight = canvas.height / 2;
+      let pageIndex = 0;
+
+      while (currentTopCssPx < totalCssHeight) {
+        let chunkHeightCssPx = Math.min(pageHeightCssPx, totalCssHeight - currentTopCssPx);
+
+        // Find nearest row bottom if not the final page
+        if (currentTopCssPx + chunkHeightCssPx < totalCssHeight && rowBottomOffsets.length > 0) {
+          const maxCut = currentTopCssPx + chunkHeightCssPx;
+          const eligibleRows = rowBottomOffsets.filter(
+            (b) => b > currentTopCssPx + (pageHeightCssPx * 0.6) && b <= maxCut
+          );
+          if (eligibleRows.length > 0) {
+            const bestCut = Math.max(...eligibleRows);
+            chunkHeightCssPx = bestCut - currentTopCssPx;
+          }
+        }
+
+        const chunkTopPx = Math.round(currentTopCssPx * 2);
+        const chunkHeightPx = Math.round(chunkHeightCssPx * 2);
+
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = chunkHeightPx;
+        const pageCtx = pageCanvas.getContext("2d");
+
+        pageCtx.fillStyle = "#ffffff";
+        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        pageCtx.drawImage(
+          canvas,
+          0, chunkTopPx, canvas.width, chunkHeightPx,
+          0, 0, canvas.width, chunkHeightPx
+        );
+
+        const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.95);
+        const sliceHeightMm = chunkHeightCssPx / pxPerMm;
+
+        if (pageIndex > 0) {
+          doc.addPage();
+        }
+
+        doc.addImage(pageImgData, "JPEG", 10, 10, pdfWidth, sliceHeightMm, undefined, "FAST");
+
+        currentTopCssPx += chunkHeightCssPx;
+        pageIndex++;
+      }
+
+      const fileName = `${reportType === "collection" ? "Student_Collection_Report" : "Deposit_Report"}_${period === "monthly" ? `${selectedMonth}_${selectedYear}` : selectedYear}.pdf`;
+      doc.save(fileName);
+      toast.success("পিডিএফ ডাউনলোড সম্পন্ন হয়েছে!", { id: toastId });
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      toast.error("পিডিএফ ডাউনলোডে সমস্যা হয়েছে। সরাসরি প্রিন্ট অপশন ব্যবহার করুন।", { id: toastId });
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const totalAmount = data.reduce((sum, item) => sum + Number(reportType === "collection" ? item.amount_paid : item.total_amount), 0);
@@ -262,8 +338,22 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
             <button onClick={handleExportExcel} className="btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "#107c41", color: "white" }}>
               <Download size={16} /> Excel
             </button>
-            <button onClick={handleExportPDF} className="btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "#F40F02", color: "white" }}>
-              <FileText size={16} /> PDF
+            <button
+              onClick={handleExportPDF}
+              disabled={generatingPdf}
+              className="btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                background: "#F40F02",
+                color: "white",
+                opacity: generatingPdf ? 0.7 : 1,
+                cursor: generatingPdf ? "not-allowed" : "pointer",
+              }}
+            >
+              {generatingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+              {generatingPdf ? "পিডিএফ হচ্ছে..." : "PDF"}
             </button>
             <button onClick={handlePrint} className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
               <Printer size={16} /> প্রিন্ট করুন

@@ -36,6 +36,7 @@ export default function SchoolPrintHeader({ title, subtitle, extraInfo }) {
         {profile?.logo_url && (
           <img
             src={profile.logo_url}
+            crossOrigin="anonymous"
             alt="School Logo"
             style={{ width: "55px", height: "55px", objectFit: "contain" }}
           />
