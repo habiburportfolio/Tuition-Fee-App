@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import { X, Send, Printer, Calendar, Edit2, Check } from "lucide-react";
@@ -10,6 +11,7 @@ import toast from "react-hot-toast";
 export default function ReceiptModal({ receiptData, onClose }) {
   const { user } = useAuth();
   const [teacherProfile, setTeacherProfile] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
   // Extract initial date
   const initialDateStr = receiptData?.payment?.paid_at
@@ -19,6 +21,24 @@ export default function ReceiptModal({ receiptData, onClose }) {
   const [receiptDate, setReceiptDate] = useState(initialDateStr);
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    document.body.classList.add("receipt-print-mode");
+    return () => {
+      document.body.classList.remove("receipt-print-mode");
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     if (user) {
@@ -31,7 +51,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
     }
   }, [user]);
 
-  if (!receiptData) return null;
+  if (!receiptData || !mounted) return null;
 
   const { student, payment, selectedFeesDetails: propFeesDetails, totalPayable, discount, fine, classInfo } = receiptData;
 
@@ -62,7 +82,6 @@ export default function ReceiptModal({ receiptData, onClose }) {
       }
     ];
   } else {
-    // If fee item is literally "পূর্বের বকেয়া আদায়", make it clearer and more professional
     resolvedFees = resolvedFees.map(item => {
       if (item.name === "পূর্বের বকেয়া আদায়") {
         return {
@@ -76,7 +95,6 @@ export default function ReceiptModal({ receiptData, onClose }) {
 
   // Base fee subtotal (without fine)
   const feeSubtotal = resolvedFees.reduce((sum, f) => sum + Number(f.amount || 0), 0);
-
   const calculatedTotalPayable = totalPayable || (feeSubtotal + Number(resolvedFine || 0));
 
   const handleUpdateDate = async () => {
@@ -166,9 +184,9 @@ export default function ReceiptModal({ receiptData, onClose }) {
     window.open(waLink, "_blank");
   };
 
-  // Reusable single receipt slip component (used for both Student Copy & School Copy)
-  const renderReceiptSlip = (copyType) => (
-    <div className="receipt-slip-inner" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "10px 14px", boxSizing: "border-box" }}>
+  // Single receipt slip component (Student copy only, no school copy needed)
+  const renderReceiptSlip = () => (
+    <div className="receipt-slip-inner" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "14px 18px", boxSizing: "border-box" }}>
       {/* Copy Type Tag */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
         <span
@@ -178,14 +196,14 @@ export default function ReceiptModal({ receiptData, onClose }) {
             fontWeight: "700",
             padding: "2px 8px",
             borderRadius: "4px",
-            background: copyType === "ছাত্র/ছাত্রীর কপি" ? "rgba(0, 112, 243, 0.12)" : "rgba(39, 174, 96, 0.12)",
-            color: copyType === "ছাত্র/ছাত্রীর কপি" ? "#0070f3" : "#27ae60",
-            border: `1px solid ${copyType === "ছাত্র/ছাত্রীর কপি" ? "#0070f3" : "#27ae60"}`
+            background: "rgba(0, 112, 243, 0.12)",
+            color: "#0070f3",
+            border: "1px solid #0070f3"
           }}
         >
-          {copyType}
+          ছাত্র/ছাত্রীর কপি
         </span>
-        <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+        <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>
           রসিদ নং: <b>{payment.receipt_no}</b>
         </span>
       </div>
@@ -221,7 +239,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
       <div style={{ fontSize: "12px", marginBottom: "6px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", paddingBottom: "4px", borderBottom: "1px dashed var(--border-color)" }}>
           <span>তারিখ: <b>{formattedDateBengali}</b></span>
-          {isEditingDate && copyType === "ছাত্র/ছাত্রীর কপি" && (
+          {isEditingDate && (
             <span className="no-print" style={{ display: "flex", gap: "4px" }}>
               <input
                 type="date"
@@ -384,299 +402,328 @@ export default function ReceiptModal({ receiptData, onClose }) {
     </div>
   );
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: "16px"
-      }}
-    >
-      <div className="card-glass" style={{ width: "100%", maxWidth: "860px", padding: "0", maxHeight: "95vh", overflowY: "auto" }}>
-        
-        {/* Modal Header */}
-        <div
-          style={{
-            background: "var(--brand-primary)",
-            color: "white",
-            padding: "12px 18px",
-            borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h3 style={{ margin: 0, fontSize: "17px" }}>পেমেন্ট রসিদ (ছাত্র/ছাত্রী ও স্কুল কপি)</h3>
-            <span style={{ fontSize: "12px", background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "12px" }}>
-              A4 পেজের অর্ধেক হাইটে পাশাপাশি প্রিন্ট
-            </span>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "white", cursor: "pointer" }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Date Edit bar in Modal Preview */}
-        <div className="no-print" style={{ padding: "8px 18px", background: "rgba(0, 112, 243, 0.05)", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Calendar size={14} style={{ color: "var(--brand-primary)" }} />
-            <span>তারিখ: <b>{formattedDateBengali}</b></span>
-            {!isEditingDate ? (
-              <button
-                onClick={() => setIsEditingDate(true)}
-                style={{ background: "none", border: "none", color: "var(--brand-primary)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "2px" }}
-              >
-                <Edit2 size={12} /> পরিবর্তন
-              </button>
-            ) : (
-              <span style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
-                <input
-                  type="date"
-                  value={receiptDate}
-                  onChange={(e) => setReceiptDate(e.target.value)}
-                  style={{ fontSize: "12px", padding: "2px 4px", borderRadius: "4px", border: "1px solid var(--brand-primary)" }}
-                />
-                <button onClick={handleUpdateDate} className="btn btn-primary" style={{ padding: "3px 6px", fontSize: "11px" }}>
-                  <Check size={12} />
-                </button>
+  return createPortal(
+    <div className="receipt-modal-portal">
+      <div
+        className="receipt-modal-overlay"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="card-glass receipt-modal-container">
+          
+          {/* Modal Header */}
+          <div className="modal-header-bar no-print">
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <h3 style={{ margin: 0, fontSize: "17px" }}>ফি আদায়ের রসিদ</h3>
+              <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "12px" }}>
+                ছাত্র/ছাত্রীর কপি (১ পেজ)
               </span>
-            )}
-          </div>
-          <div style={{ color: "var(--text-secondary)", fontSize: "11px" }}>
-            * কলাম ডিভাইডার সহ বামে ছাত্র কপি ও ডানে স্কুল কপি প্রিন্ট হবে
-          </div>
-        </div>
-
-        {/* Printable Area: Two Columns (Student Copy | School Copy) with Divider */}
-        <div id="printable-receipt" className="printable-receipt-wrapper">
-          {/* Column 1: Student Copy */}
-          <div className="receipt-col student-copy">
-            {renderReceiptSlip("ছাত্র/ছাত্রীর কপি")}
-          </div>
-
-          {/* Column Divider */}
-          <div className="receipt-divider">
-            <div className="divider-line"></div>
-            <span className="scissor-icon">✂</span>
-          </div>
-
-          {/* Column 2: School Copy */}
-          <div className="receipt-col school-copy">
-            {renderReceiptSlip("বিদ্যালয়/অফিস কপি")}
-          </div>
-        </div>
-
-        {/* Action Buttons (Hidden on Print) */}
-        <div className="no-print" style={{ padding: "14px 18px", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-            <button
-              onClick={openWhatsApp}
-              className="btn"
-              style={{
-                background: "#25D366",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                padding: "9px"
-              }}
-            >
-              <Send size={15} /> WhatsApp
-            </button>
-
-            <a
-              href={`sms:${student.parent_phone || ""}?body=${generateWhatsAppMessage()}`}
-              className="btn"
-              style={{
-                background: "#34B7F1",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                padding: "9px",
-                textDecoration: "none"
-              }}
-            >
-              <Send size={15} /> SMS
-            </a>
-
-            <a
-              href={`mailto:?subject=${encodeURIComponent("স্কুল ফি জমার রসিদ")}&body=${generateWhatsAppMessage()}`}
-              className="btn"
-              style={{
-                background: "#EA4335",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                padding: "9px",
-                textDecoration: "none"
-              }}
-            >
-              <Send size={15} /> Email
-            </a>
-          </div>
-
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => window.print()}
-              className="btn"
-              style={{
-                flex: 1,
-                border: "2px solid var(--brand-primary)",
-                background: "var(--brand-primary)",
-                color: "white",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                padding: "10px"
-              }}
-            >
-              <Printer size={18} /> রসিদ প্রিন্ট করুন (Print Receipt)
-            </button>
-
-            <button
-              onClick={onClose}
-              className="btn"
-              style={{
-                border: "1px solid var(--border-color)",
-                background: "transparent",
-                color: "var(--text-primary)",
-                padding: "10px 16px"
-              }}
-            >
-              বন্ধ করুন
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", alignItems: "center" }}>
+              <X size={20} />
             </button>
           </div>
-        </div>
 
+          {/* Date Edit bar in Modal Preview */}
+          <div className="date-edit-bar no-print">
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Calendar size={14} style={{ color: "var(--brand-primary)" }} />
+              <span>তারিখ: <b>{formattedDateBengali}</b></span>
+              {!isEditingDate ? (
+                <button
+                  onClick={() => setIsEditingDate(true)}
+                  style={{ background: "none", border: "none", color: "var(--brand-primary)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "2px" }}
+                >
+                  <Edit2 size={12} /> পরিবর্তন
+                </button>
+              ) : (
+                <span style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
+                  <input
+                    type="date"
+                    value={receiptDate}
+                    onChange={(e) => setReceiptDate(e.target.value)}
+                    style={{ fontSize: "12px", padding: "2px 4px", borderRadius: "4px", border: "1px solid var(--brand-primary)" }}
+                  />
+                  <button onClick={handleUpdateDate} className="btn btn-primary" style={{ padding: "3px 6px", fontSize: "11px" }}>
+                    <Check size={12} />
+                  </button>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Printable Area: Single Receipt (Student Copy Only) */}
+          <div id="printable-receipt" className="printable-receipt-wrapper">
+            <div className="receipt-col student-copy">
+              {renderReceiptSlip()}
+            </div>
+          </div>
+
+          {/* Action Buttons (Hidden on Print) */}
+          <div className="action-buttons-bar no-print">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+              <button
+                onClick={openWhatsApp}
+                className="btn"
+                style={{
+                  background: "#25D366",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "9px"
+                }}
+              >
+                <Send size={15} /> WhatsApp
+              </button>
+
+              <a
+                href={`sms:${student.parent_phone || ""}?body=${generateWhatsAppMessage()}`}
+                className="btn"
+                style={{
+                  background: "#34B7F1",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "9px",
+                  textDecoration: "none"
+                }}
+              >
+                <Send size={15} /> SMS
+              </a>
+
+              <a
+                href={`mailto:?subject=${encodeURIComponent("স্কুল ফি জমার রসিদ")}&body=${generateWhatsAppMessage()}`}
+                className="btn"
+                style={{
+                  background: "#EA4335",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "9px",
+                  textDecoration: "none"
+                }}
+              >
+                <Send size={15} /> Email
+              </a>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => window.print()}
+                className="btn"
+                style={{
+                  flex: 1,
+                  border: "2px solid var(--brand-primary)",
+                  background: "var(--brand-primary)",
+                  color: "white",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "10px"
+                }}
+              >
+                <Printer size={18} /> রসিদ প্রিন্ট করুন (Print Receipt)
+              </button>
+
+              <button
+                onClick={onClose}
+                className="btn"
+                style={{
+                  border: "1px solid var(--border-color)",
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  padding: "10px 16px"
+                }}
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
 
       <style jsx>{`
+        .receipt-modal-portal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 1000;
+        }
+        .receipt-modal-overlay {
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.65);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          box-sizing: border-box;
+        }
+        .receipt-modal-container {
+          width: 100%;
+          max-width: 500px;
+          padding: 0;
+          max-height: 94vh;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          background: var(--card-bg);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .modal-header-bar {
+          background: var(--brand-primary);
+          color: white;
+          padding: 12px 18px;
+          border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .date-edit-bar {
+          padding: 8px 18px;
+          background: rgba(0, 112, 243, 0.05);
+          border-bottom: 1px solid var(--border-color);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 12px;
+        }
+        .action-buttons-bar {
+          padding: 14px 18px;
+          border-top: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          background: var(--card-bg);
+        }
         .printable-receipt-wrapper {
           display: flex;
-          flex-direction: row;
+          flex-direction: column;
           width: 100%;
-          padding: 12px;
-          gap: 0;
+          padding: 14px;
           box-sizing: border-box;
           background: var(--bg-color);
         }
         .receipt-col {
-          flex: 1;
           display: flex;
           flex-direction: column;
           background: var(--card-bg);
-          border-radius: var(--radius-sm);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-color);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
           overflow: hidden;
-        }
-        .receipt-divider {
-          width: 32px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justifyContent: center;
-          position: relative;
-        }
-        .divider-line {
-          width: 1px;
-          height: 100%;
-          border-left: 2px dashed #999;
-          position: absolute;
-          left: 50%;
-          top: 0;
-          transform: translateX(-50%);
-        }
-        .scissor-icon {
-          position: relative;
-          z-index: 2;
-          background: var(--card-bg);
-          padding: 2px 0;
-          font-size: 13px;
-          color: #666;
-        }
-
-        @media (max-width: 768px) {
-          .printable-receipt-wrapper {
-            flex-direction: column;
-            gap: 16px;
-          }
-          .receipt-divider {
-            width: 100%;
-            height: 24px;
-          }
-          .divider-line {
-            width: 100%;
-            height: 1px;
-            border-left: none;
-            border-top: 2px dashed #999;
-            top: 50%;
-            left: 0;
-            transform: translateY(-50%);
-          }
         }
 
         @media print {
-          .printable-receipt-wrapper {
-            display: flex !important;
-            flex-direction: row !important;
+          @page {
+            size: A4 portrait;
+            margin: 10mm 15mm;
+          }
+
+          :global(html), :global(body) {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
+          }
+
+          :global(body.receipt-print-mode > *:not(.receipt-modal-portal)) {
+            display: none !important;
+          }
+
+          :global(.receipt-modal-portal) {
+            display: block !important;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          :global(.receipt-modal-overlay) {
+            position: static !important;
+            display: block !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          :global(.receipt-modal-container) {
+            position: static !important;
+            display: block !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
-            height: 138mm !important; /* Half of A4 page height (297mm / 2 = ~148mm minus margins) */
-            max-height: 140mm !important;
-            padding: 4mm 6mm !important;
-            gap: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+
+          :global(.no-print) {
+            display: none !important;
+          }
+
+          .printable-receipt-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 145mm !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
             background: #ffffff !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
+
           .receipt-col {
-            flex: 1 !important;
             display: flex !important;
             flex-direction: column !important;
-            height: 100% !important;
-            border: 1px solid #333 !important;
-            border-radius: 4px !important;
+            width: 100% !important;
+            border: 1.5px solid #222 !important;
+            border-radius: 6px !important;
             box-shadow: none !important;
             background: #ffffff !important;
             color: #000000 !important;
             overflow: hidden !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
-          .receipt-divider {
-            width: 8mm !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justifyContent: center !important;
-            position: relative !important;
-          }
-          .divider-line {
-            border-left: 1.5px dashed #444 !important;
-            display: block !important;
-          }
-          .scissor-icon {
-            display: block !important;
-            background: #fff !important;
-            color: #000 !important;
+
+          :global(.receipt-slip-inner) {
+            background: #ffffff !important;
+            color: #000000 !important;
+            padding: 14px 18px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

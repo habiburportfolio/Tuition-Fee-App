@@ -168,25 +168,44 @@ input:focus, select:focus {
 }
 
 @media print {
-  body * {
+  /* Receipt Modal Print Mode: Isolate portal and prevent multi-page spill */
+  body.receipt-print-mode {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.receipt-print-mode > *:not(.receipt-modal-portal) {
+    display: none !important;
+  }
+  .receipt-modal-portal,
+  .receipt-modal-portal * {
+    visibility: visible !important;
+  }
+
+  /* Default Print Mode for other modals and pages (e.g. Student List, Reports) */
+  body:not(.receipt-print-mode) * {
     visibility: hidden;
   }
-  #printable-receipt, #printable-receipt *,
-  #print-area, #print-area *,
-  .printable-area, .printable-area * {
+  body:not(.receipt-print-mode) #print-area,
+  body:not(.receipt-print-mode) #print-area *,
+  body:not(.receipt-print-mode) .printable-area,
+  body:not(.receipt-print-mode) .printable-area * {
     visibility: visible;
   }
-  #printable-receipt, #print-area, .printable-area {
+  body:not(.receipt-print-mode) #print-area,
+  body:not(.receipt-print-mode) .printable-area {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     margin: 0;
+    padding: 10px 20px;
     background: #ffffff !important;
     color: #000000 !important;
-  }
-  #print-area, .printable-area {
-    padding: 10px 20px;
   }
   .card, .card-glass {
     box-shadow: none !important;
