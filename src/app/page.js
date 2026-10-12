@@ -65,22 +65,36 @@ export default function Home() {
     }
   }, [user, selectedClassId]);
 
+  const [registering, setRegistering] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       toast.error("লগইন করতে ইমেইল এবং পাসওয়ার্ড দিন!");
       return;
     }
+    setLoggingIn(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       toast.success("লগইন সফল হয়েছে!");
     } catch (error) {
-      toast.error(`❌ লগইন এরর: ${error.message}`);
+      console.error("Login error:", error);
+      if (error.message?.includes("Email not confirmed")) {
+        toast.error("❌ ইমেইল এখনো নিশ্চিত করা হয়নি। দয়া করে আপনার ইনবক্স চেক করুন অথবা এডমিনকে জানান।");
+      } else if (error.message?.includes("Invalid login credentials")) {
+        toast.error("❌ ইমেইল বা পাসওয়ার্ড ভুল হয়েছে!");
+      } else {
+        toast.error(`❌ লগইন এরর: ${error.message}`);
+      }
+    } finally {
+      setLoggingIn(false);
     }
   };
 
   const handleRegister = async () => {
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
       toast.error("রেজিস্ট্রেশন করতে ইমেইল এবং পাসওয়ার্ড দিন!");
       return;
     }
@@ -88,25 +102,44 @@ export default function Home() {
       toast.error("পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে!");
       return;
     }
+    setRegistering(true);
+    const toastId = toast.loading("অ্যাকাউন্ট তৈরি হচ্ছে...");
+
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: cleanEmail,
+        password: password,
       });
       if (error) throw error;
-      
-      // Auto create teacher profile on signup
-      if (data?.user) {
-        await supabase.from("teachers").insert([{
-          id: data.user.id,
-          email: email,
-          full_name: "Teacher User",
-          school_name: "My School"
-        }]);
+
+      // If session is already created (Confirm email is off)
+      if (data?.session) {
+        // Teacher profile will be ensured by AuthContext
+        toast.success("রেজিস্ট্রেশন সফল! স্বাগতম।", { id: toastId });
+      } else if (data?.user) {
+        // Try auto sign-in
+        try {
+          await login(cleanEmail, password);
+          toast.success("রেজিস্ট্রেশন সফল! স্বাগতম।", { id: toastId });
+        } catch (loginErr) {
+          if (loginErr.message?.includes("Email not confirmed")) {
+            toast.success("রেজিস্ট্রেশন সফল! আপনার ইমেইল চেক করে ভেরিফাই করুন।", { id: toastId });
+          } else {
+            toast.success("রেজিস্ট্রেশন সফল! এখন লগইন করুন।", { id: toastId });
+          }
+        }
+      } else {
+        toast.success("রেজিস্ট্রেশন সফল! এখন লগইন করুন।", { id: toastId });
       }
-      toast.success("রেজিস্ট্রেশন সফল! লগইন করা হয়েছে।");
     } catch (error) {
-      toast.error(`❌ রেজিস্ট্রেশন এরর: ${error.message}`);
+      console.error("Registration error:", error);
+      if (error.message?.includes("User already registered")) {
+        toast.error("❌ এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট রয়েছে! সরাসরি লগইন করুন।", { id: toastId });
+      } else {
+        toast.error(`❌ রেজিস্ট্রেশন এরর: ${error.message}`, { id: toastId });
+      }
+    } finally {
+      setRegistering(false);
     }
   };
 
@@ -174,7 +207,14 @@ export default function Home() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button type="submit" className="btn btn-primary" style={{ padding: "12px", flex: 1 }}>লগইন করুন</button>
+              <button 
+                type="submit" 
+                disabled={loggingIn || registering}
+                className="btn btn-primary" 
+                style={{ padding: "12px", flex: 1, opacity: loggingIn ? 0.7 : 1 }}
+              >
+                {loggingIn ? "লগইন হচ্ছে..." : "লগইন করুন"}
+              </button>
             </div>
             
             <button 
@@ -187,7 +227,15 @@ export default function Home() {
             
             <div style={{ textAlign: "center", margin: "10px 0", color: "var(--text-secondary)" }}>অথবা</div>
             
-            <button type="button" onClick={handleRegister} className="btn" style={{ border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", background: "var(--card-bg)", padding: "12px" }}>নতুন একাউন্ট খুলুন</button>
+            <button 
+              type="button" 
+              onClick={handleRegister} 
+              disabled={registering || loggingIn}
+              className="btn" 
+              style={{ border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", background: "var(--card-bg)", padding: "12px", opacity: registering ? 0.7 : 1 }}
+            >
+              {registering ? "অ্যাকাউন্ট তৈরি হচ্ছে..." : "নতুন একাউন্ট খুলুন"}
+            </button>
           </form>
         </div>
       </div>

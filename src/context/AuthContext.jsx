@@ -15,9 +15,41 @@ export const AuthProvider = ({ children }) => {
       setUserRole("teacher");
       return;
     }
-    const { data } = await supabase.from("teachers").select("role").eq("id", authUser.id).single();
-    if (data && data.role) {
-      setUserRole(data.role);
+    try {
+      const { data, error } = await supabase
+        .from("teachers")
+        .select("role")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (data && data.role) {
+        setUserRole(data.role);
+      } else if (!data) {
+        // Self-heal: Create teacher profile record if it doesn't exist yet
+        const defaultName = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Teacher User";
+        const { data: newProfile, error: insertErr } = await supabase
+          .from("teachers")
+          .upsert([
+            {
+              id: authUser.id,
+              email: authUser.email,
+              full_name: defaultName,
+              school_name: "বিদ্যালয়ের নাম",
+              role: "teacher",
+            },
+          ], { onConflict: "id" })
+          .select("role")
+          .maybeSingle();
+
+        if (newProfile && newProfile.role) {
+          setUserRole(newProfile.role);
+        } else {
+          setUserRole("teacher");
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching user profile:", err);
+      setUserRole("teacher");
     }
   };
 

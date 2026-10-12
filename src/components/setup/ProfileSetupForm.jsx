@@ -36,8 +36,8 @@ export default function ProfileSetupForm() {
           .from("teachers")
           .select("*")
           .eq("id", user.id)
-          .single();
-          
+          .maybeSingle();
+
         if (error) throw error;
         if (data) {
           setFormData({
@@ -51,6 +51,7 @@ export default function ProfileSetupForm() {
           });
         }
       } catch (error) {
+        console.error("Profile load error:", error);
         toast.error("প্রোফাইল লোড করতে সমস্যা হয়েছে!");
       } finally {
         setLoading(false);
