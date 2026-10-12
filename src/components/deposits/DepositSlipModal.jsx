@@ -144,8 +144,17 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
       ? totalDiscountFromPayments
       : Math.max(0, totalGrossFromBreakdown - netAmount);
 
+    const itemsWithDiscount = [...items];
+    if (discount > 0) {
+      itemsWithDiscount.push({
+        name: "মওকুফ / ডিসকাউন্ট (-)",
+        amount: discount,
+        isDiscount: true
+      });
+    }
+
     return {
-      items,
+      items: itemsWithDiscount,
       grossTotal: totalGrossFromBreakdown,
       discount,
       netTotal: netAmount
@@ -450,35 +459,35 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
               </thead>
               <tbody>
                 {feeBreakdown.items.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <td style={{ padding: "8px 10px", color: "var(--text-secondary)" }}>{toBanglaNumber(idx + 1)}.</td>
-                    <td style={{ padding: "8px 10px", fontWeight: "600" }}>{item.name}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700" }}>
-                      {item.amount} ৳
+                  <tr
+                    key={idx}
+                    style={{
+                      borderBottom: "1px solid var(--border-color)",
+                      backgroundColor: item.isDiscount ? "rgba(235, 87, 87, 0.05)" : "transparent"
+                    }}
+                  >
+                    <td style={{ padding: "8px 10px", color: item.isDiscount ? "var(--brand-danger)" : "var(--text-secondary)" }}>
+                      {toBanglaNumber(idx + 1)}.
+                    </td>
+                    <td style={{ padding: "8px 10px", fontWeight: "600", color: item.isDiscount ? "var(--brand-danger)" : "inherit" }}>
+                      {item.name}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", color: item.isDiscount ? "var(--brand-danger)" : "inherit" }}>
+                      {item.isDiscount ? `- ${item.amount}` : item.amount} ৳
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 {feeBreakdown.discount > 0 && (
-                  <>
-                    <tr style={{ borderTop: "1.5px solid var(--border-color)", background: "rgba(0,0,0,0.02)" }}>
-                      <td colSpan="2" style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", color: "var(--text-secondary)", fontSize: "13px" }}>
-                        মোট ফি ও জরিমানা:
-                      </td>
-                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
-                        {feeBreakdown.grossTotal} ৳
-                      </td>
-                    </tr>
-                    <tr style={{ background: "rgba(235, 87, 87, 0.06)", color: "var(--brand-danger)" }}>
-                      <td colSpan="2" style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
-                        মওকুফ / ডিসকাউন্ট (-):
-                      </td>
-                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
-                        - {feeBreakdown.discount} ৳
-                      </td>
-                    </tr>
-                  </>
+                  <tr style={{ borderTop: "1.5px solid var(--border-color)", background: "rgba(0,0,0,0.02)" }}>
+                    <td colSpan="2" style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", color: "var(--text-secondary)", fontSize: "13px" }}>
+                      মোট ফি ও জরিমানা:
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
+                      {feeBreakdown.grossTotal} ৳
+                    </td>
+                  </tr>
                 )}
                 <tr style={{ background: "rgba(39, 174, 96, 0.08)", borderTop: feeBreakdown.discount > 0 ? "1.5px solid var(--border-color)" : "2px solid var(--border-color)" }}>
                   <td colSpan="2" style={{ padding: "10px", textAlign: "right", fontWeight: "800", fontSize: "14px" }}>

@@ -32,6 +32,31 @@ export default function SchoolPrintHeader({ title, subtitle, extraInfo }) {
         width: "100%"
       }}
     >
+      <style>{`
+        @media print {
+          .school-print-header {
+            position: static !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            padding-bottom: 6px !important;
+            margin-bottom: 10px !important;
+          }
+          .school-print-header img {
+            width: 42px !important;
+            height: 42px !important;
+          }
+          .school-print-header h2 {
+            font-size: 18px !important;
+          }
+          .school-print-header h3 {
+            font-size: 14px !important;
+            margin: 4px 0 2px 0 !important;
+          }
+        }
+      `}</style>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "15px", marginBottom: "6px" }}>
         {profile?.logo_url && (
           <img

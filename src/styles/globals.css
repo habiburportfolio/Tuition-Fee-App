@@ -195,6 +195,10 @@ input:focus, select:focus {
     margin: 0 !important;
     padding: 0 !important;
   }
+  body.report-print-mode.single-page-report-mode {
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
   body.report-print-mode > *:not(.report-modal-portal) {
     display: none !important;
   }
@@ -207,7 +211,8 @@ input:focus, select:focus {
   body.deposit-print-mode {
     height: auto !important;
     min-height: 0 !important;
-    overflow: visible !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
     background: #ffffff !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -220,17 +225,14 @@ input:focus, select:focus {
     visibility: visible !important;
   }
 
-  /* Default Print Mode for other modals and pages (e.g. Student List) */
+  /* Default Print Mode for other pages (e.g. Student List) */
   body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) * {
     visibility: hidden;
   }
-  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area,
-  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area *,
   body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area,
   body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area * {
     visibility: visible;
   }
-  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area,
   body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area {
     position: absolute;
     left: 0;
@@ -241,6 +243,16 @@ input:focus, select:focus {
     background: #ffffff !important;
     color: #000000 !important;
   }
+
+  /* School Print Header - Only on first page */
+  .school-print-header {
+    position: static !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
   .card, .card-glass {
     box-shadow: none !important;
     border: none !important;

@@ -28,6 +28,19 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
     };
   }, []);
 
+  const isSinglePage = reportType === "collection" && data.length <= 30;
+
+  useEffect(() => {
+    if (isSinglePage) {
+      document.body.classList.add("single-page-report-mode");
+    } else {
+      document.body.classList.remove("single-page-report-mode");
+    }
+    return () => {
+      document.body.classList.remove("single-page-report-mode");
+    };
+  }, [isSinglePage]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") onClose();
@@ -380,7 +393,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
             @media print {
               @page {
                 size: A4 portrait;
-                margin: 10mm 12mm;
+                margin: 8mm 10mm;
               }
 
               html, body {
@@ -389,7 +402,12 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                 background: #ffffff !important;
                 height: auto !important;
                 min-height: 0 !important;
-                overflow: visible !important;
+              }
+
+              body.single-page-report-mode,
+              body.single-page-report-mode html {
+                max-height: 100% !important;
+                overflow: hidden !important;
               }
 
               body.report-print-mode > *:not(.report-modal-portal) {
@@ -428,17 +446,53 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                 color: #000000 !important;
               }
 
-              table {
+              body.single-page-report-mode #print-area {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+              }
+
+              /* School Print Header is only on page 1 */
+              .school-print-header {
+                position: static !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                margin-bottom: 8px !important;
+                padding-bottom: 6px !important;
+              }
+
+              .report-main-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 11px !important;
+                border: 1px solid #000 !important;
                 page-break-inside: auto !important;
+              }
+
+              .report-main-table th {
+                padding: 3.5px 6px !important;
+                font-size: 11px !important;
+                background: #f0f0f0 !important;
+                border: 1px solid #000 !important;
+              }
+
+              .report-main-table td {
+                padding: 3px 5px !important;
+                font-size: 10.5px !important;
+                border: 1px solid #000 !important;
+                line-height: 1.25 !important;
+              }
+
+              .report-main-table tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
               }
 
               thead {
                 display: table-header-group !important;
-              }
-
-              tr {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
               }
             }
           `}</style>
@@ -517,7 +571,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
             <div style={{ textAlign: "center", padding: "20px", color: "gray" }}>কোনো ডাটা পাওয়া যায়নি</div>
           ) : (
             <>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", border: "1px solid black" }}>
+              <table className="report-main-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", border: "1px solid black" }}>
                 <thead>
                   <tr style={{ background: "#f2f2f2" }}>
                     <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>তারিখ</th>
