@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
-import { Search, User, CreditCard, CheckCircle, Clock, XCircle, Printer, Award, Calendar } from "lucide-react";
+import { Search, User, CreditCard, CheckCircle, Clock, XCircle, Printer, Award, Calendar, Plus, X, Tag } from "lucide-react";
 import { numberToBanglaWords } from "@/utils/numberToBanglaWords";
 import toast from "react-hot-toast";
 import ReceiptModal from "./ReceiptModal";
@@ -44,6 +44,14 @@ export default function CollectionForm({ classId, classInfo }) {
   // Post-payment & History
   const [receiptData, setReceiptData] = useState(null);
   const [recentPayments, setRecentPayments] = useState([]);
+
+  // On-the-spot dynamic fee heads & Add Fee Modal state
+  const [customOnTheSpotFees, setCustomOnTheSpotFees] = useState([]);
+  const [showAddFeeModal, setShowAddFeeModal] = useState(false);
+  const [newFeeName, setNewFeeName] = useState("");
+  const [newFeeAmount, setNewFeeAmount] = useState("");
+  const [saveFeePermanently, setSaveFeePermanently] = useState(true);
+  const [addingFee, setAddingFee] = useState(false);
 
   useEffect(() => {
     if (classInfo) {
@@ -136,9 +144,15 @@ export default function CollectionForm({ classId, classInfo }) {
   const standardMonthlyFee = fees.find(f => f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন");
   const monthlyRate = standardMonthlyFee ? Number(standardMonthlyFee.amount) : 0;
 
+  // Combine predefined fees from fees_setup + any custom on-the-spot fees
+  const allAvailableOtherFees = [
+    ...fees.filter(f => f.fee_type !== "Monthly" && f.fee_type !== "মাসিক বেতন"),
+    ...customOnTheSpotFees
+  ];
+
   // Calculate fees breakdown
   // 1. Regular non-monthly or separately selected fees
-  const selectedOtherFees = selectedFees.map(id => fees.find(f => f.id === id)).filter(Boolean);
+  const selectedOtherFees = selectedFees.map(id => allAvailableOtherFees.find(f => f.id === id)).filter(Boolean);
   
   const selectedOtherFeesTotal = selectedOtherFees.reduce((sum, f) => {
     const isTuitionFee = f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন" || f.fee_type.toLowerCase().includes("tuition");
@@ -186,6 +200,71 @@ export default function CollectionForm({ classId, classInfo }) {
     setSelectedDueMonths(prev =>
       prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
     );
+  };
+
+  const handleAddNewFee = async (e) => {
+    e.preventDefault();
+    if (!newFeeName.trim()) {
+      toast.error("খাতের নাম লিখুন");
+      return;
+    }
+    const amt = parseFloat(newFeeAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("সঠিক টাকার পরিমাণ লিখুন");
+      return;
+    }
+
+    setAddingFee(true);
+    try {
+      if (saveFeePermanently && classId && user) {
+        // Save to Supabase fees_setup table for this class
+        const { data: createdFee, error } = await supabase
+          .from("fees_setup")
+          .insert([{
+            teacher_id: user.id,
+            class_id: classId,
+            fee_type: newFeeName.trim(),
+            amount: amt,
+            is_active: true
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add to fees list and auto-select
+        setFees(prev => [...prev, createdFee]);
+        setSelectedFees(prev => [...prev, createdFee.id]);
+        toast.success(`✅ "${createdFee.fee_type}" খাতটি যুক্ত ও সিলেক্ট করা হয়েছে!`);
+      } else {
+        // Add as dynamic on-the-spot fee for this session
+        const customId = `custom_${Date.now()}`;
+        const customItem = {
+          id: customId,
+          fee_type: newFeeName.trim(),
+          amount: amt,
+          isCustom: true
+        };
+        setCustomOnTheSpotFees(prev => [...prev, customItem]);
+        setSelectedFees(prev => [...prev, customId]);
+        toast.success(`✅ "${customItem.fee_type}" খাতটি যুক্ত ও সিলেক্ট করা হয়েছে!`);
+      }
+
+      // Reset modal form
+      setNewFeeName("");
+      setNewFeeAmount("");
+      setShowAddFeeModal(false);
+    } catch (err) {
+      console.error("Error adding fee head:", err);
+      toast.error(`❌ খাত যুক্ত করতে সমস্যা: ${err.message}`);
+    } finally {
+      setAddingFee(false);
+    }
+  };
+
+  const handleRemoveCustomFee = (customId) => {
+    setCustomOnTheSpotFees(prev => prev.filter(f => f.id !== customId));
+    setSelectedFees(prev => prev.filter(id => id !== customId));
   };
 
   const handlePaymentSubmit = async (e) => {
@@ -596,32 +675,95 @@ export default function CollectionForm({ classId, classInfo }) {
               )}
             </div>
 
-            {/* Other Fees (Exam, Session, etc.) */}
-            {fees.filter(f => f.fee_type !== "Monthly" && f.fee_type !== "মাসিক বেতন").length > 0 && (
-              <div style={{ marginBottom: "20px" }}>
-                <div style={{ fontWeight: "700", fontSize: "14px", marginBottom: "8px" }}>অন্যান্য ফি এর খাতসমূহ:</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  {fees.filter(f => f.fee_type !== "Monthly" && f.fee_type !== "মাসিক বেতন").map(fee => (
-                    <label key={fee.id} style={{ 
-                      display: "flex", alignItems: "center", gap: "8px", 
-                      padding: "8px 12px", background: "var(--card-bg)", 
-                      border: `1px solid ${selectedFees.includes(fee.id) ? "var(--brand-primary)" : "var(--border-color)"}`,
-                      borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-primary)"
-                    }}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedFees.includes(fee.id)}
-                        onChange={() => toggleFee(fee.id)}
-                        style={{ accentColor: "var(--brand-primary)" }}
-                      />
-                      <span style={{ fontSize: "14px" }}>
-                        {fee.fee_type} - <b>{fee.amount} ৳</b>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+            {/* Other Fees (Exam, Session, Custom, etc.) */}
+            <div style={{ marginBottom: "20px", background: "var(--card-bg)", padding: "14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                <span style={{ fontWeight: "700", fontSize: "14px", color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Tag size={16} /> অন্যান্য ফি এর খাতসমূহ:
+                </span>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowAddFeeModal(true)}
+                  className="btn"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    background: "rgba(0, 118, 255, 0.1)",
+                    color: "var(--brand-primary)",
+                    border: "1px solid var(--brand-primary)",
+                    borderRadius: "var(--radius-full)",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                  }}
+                >
+                  <Plus size={14} /> নতুন খাত যুক্ত করুন
+                </button>
               </div>
-            )}
+
+              {allAvailableOtherFees.length === 0 ? (
+                <div style={{ fontSize: "12.5px", color: "var(--text-secondary)", padding: "6px 0" }}>
+                  কোনো অতিরিক্ত ফি এর খাত যুক্ত নেই। যেকোনো ফি এর টাকা আদায় করতে উপরের <b>&quot;+ নতুন খাত যুক্ত করুন&quot;</b> বাটনে ক্লিক করুন।
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {allAvailableOtherFees.map(fee => {
+                    const isChecked = selectedFees.includes(fee.id);
+                    return (
+                      <div
+                        key={fee.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "8px 12px",
+                          background: isChecked ? "rgba(0, 112, 243, 0.08)" : "var(--bg-color)",
+                          border: `1px solid ${isChecked ? "var(--brand-primary)" : "var(--border-color)"}`,
+                          borderRadius: "var(--radius-sm)",
+                          cursor: "pointer",
+                          color: "var(--text-primary)"
+                        }}
+                      >
+                        <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", margin: 0 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => toggleFee(fee.id)}
+                            style={{ accentColor: "var(--brand-primary)" }}
+                          />
+                          <span style={{ fontSize: "13.5px", fontWeight: isChecked ? "700" : "500" }}>
+                            {fee.fee_type} - <b>{fee.amount} ৳</b>
+                          </span>
+                        </label>
+                        {fee.isCustom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveCustomFee(fee.id);
+                            }}
+                            title="মুছে ফেলুন"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--brand-danger)",
+                              cursor: "pointer",
+                              padding: "0 2px",
+                              marginLeft: "4px"
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Payment Summary & Submission Form */}
             <form onSubmit={handlePaymentSubmit} style={{ background: "var(--card-bg)", padding: "18px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
@@ -782,6 +924,127 @@ export default function CollectionForm({ classId, classInfo }) {
             setStudent(null);
           }} 
         />
+      )}
+
+      {/* Modal: Add New Fee Head Directly From Collection Form */}
+      {showAddFeeModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1100,
+          padding: "16px"
+        }}>
+          <div className="card animate-fade-in" style={{ width: "100%", maxWidth: "460px", padding: "24px", position: "relative" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px" }}>
+              <h3 style={{ margin: 0, fontSize: "17px", color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <Plus size={18} /> নতুন ফি এর খাত যুক্ত করুন
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddFeeModal(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Quick Suggestions Chips */}
+            <div style={{ marginBottom: "15px" }}>
+              <span style={{ fontSize: "11.5px", color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>
+                দ্রুত সিলেক্ট করুন (ক্লিক করুন):
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {["পরীক্ষার ফি", "আইডি কার্ড", "উন্নয়ন ফি", "স্কাউট ফি", "প্রবেশপত্র", "পিকনিক ফি", "প্রশংসাপত্র"].map(tag => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setNewFeeName(tag)}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "11px",
+                      borderRadius: "var(--radius-full)",
+                      border: "1px solid var(--border-color)",
+                      background: newFeeName === tag ? "var(--brand-primary)" : "var(--bg-color)",
+                      color: newFeeName === tag ? "#fff" : "var(--text-primary)",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleAddNewFee}>
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: "bold" }}>
+                  ফি / খাতের নাম *
+                </label>
+                <input
+                  type="text"
+                  value={newFeeName}
+                  onChange={(e) => setNewFeeName(e.target.value)}
+                  placeholder="যেমন: পরীক্ষার ফি, পিকনিক ফি, আইডি কার্ড"
+                  required
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--card-bg)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: "bold" }}>
+                  টাকার পরিমাণ (৳) *
+                </label>
+                <input
+                  type="number"
+                  value={newFeeAmount}
+                  onChange={(e) => setNewFeeAmount(e.target.value)}
+                  placeholder="যেমন: 150"
+                  min="1"
+                  required
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--card-bg)", color: "var(--text-primary)" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px", background: "var(--bg-color)", padding: "10px 12px", borderRadius: "6px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12.5px" }}>
+                  <input
+                    type="checkbox"
+                    checked={saveFeePermanently}
+                    onChange={(e) => setSaveFeePermanently(e.target.checked)}
+                    style={{ accentColor: "var(--brand-primary)" }}
+                  />
+                  <span>এই ক্লাসের ফি তালিকায় স্থায়ীভাবে সংরক্ষণ করুন (অন্য শিক্ষার্থীদের জন্যও থাকবে)</span>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddFeeModal(false)}
+                  className="btn"
+                  style={{ padding: "8px 16px", border: "1px solid var(--border-color)" }}
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingFee}
+                  className="btn btn-primary"
+                  style={{ padding: "8px 20px" }}
+                >
+                  {addingFee ? "যুক্ত হচ্ছে..." : "যুক্ত করুন ও সিলেক্ট করুন"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
