@@ -461,23 +461,25 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
               borderTop: "1px dashed var(--border-color)"
             }}
           >
-            <div style={{ textAlign: "center" }}>
-              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "120px", paddingTop: "4px", fontSize: "12px" }}>
-                জমা প্রদানকারী (শিক্ষক)
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
               {teacherProfile?.signature_url ? (
                 <img
                   src={teacherProfile.signature_url}
-                  alt="Signature"
+                  crossOrigin="anonymous"
+                  alt="Teacher Signature"
                   style={{ height: "30px", objectFit: "contain", marginBottom: "2px" }}
                 />
               ) : (
                 <div style={{ height: "30px" }}></div>
               )}
-              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "120px", paddingTop: "4px", fontSize: "12px" }}>
+              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "130px", paddingTop: "4px", fontSize: "12px" }}>
+                জমা প্রদানকারী (শিক্ষক)
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ height: "30px" }}></div>
+              <div style={{ borderTop: "1px solid var(--text-secondary)", width: "140px", paddingTop: "4px", fontSize: "12px" }}>
                 গ্রহীতা / ব্যাংক কর্তৃপক্ষ
               </div>
             </div>

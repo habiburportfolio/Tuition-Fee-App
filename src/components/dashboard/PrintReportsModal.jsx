@@ -117,10 +117,25 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
               });
 
               filtered.forEach(d => {
-                d.khatSummary = breakdownMap[d.id] ? Object.entries(breakdownMap[d.id]).map(([name, amt]) => `${name}: ${amt}৳`).join(", ") : "মাসিক বেতন ও ফি আদায়";
+                const breakdown = breakdownMap[d.id] || {};
+                const entries = Object.entries(breakdown);
+                if (entries.length > 0) {
+                  d.khatList = entries.map(([name, amt]) => ({ name, amt }));
+                  d.khatSummary = entries.map(([name, amt]) => `${name}: ${amt}৳`).join(", ");
+                } else {
+                  d.khatList = [{ name: "মাসিক বেতন ও বকেয়া ফি", amt: d.total_amount }];
+                  d.khatSummary = `মাসিক বেতন ও বকেয়া ফি: ${d.total_amount}৳`;
+                }
               });
             }
           }
+
+          filtered.forEach(d => {
+            if (!d.khatList) {
+              d.khatList = [{ name: "মাসিক বেতন ও বকেয়া ফি", amt: d.total_amount }];
+              d.khatSummary = `মাসিক বেতন ও বকেয়া ফি: ${d.total_amount}৳`;
+            }
+          });
           
           setData(filtered);
         }
@@ -157,7 +172,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
         "মাধ্যম": item.deposit_channel,
         "ব্যাংকের নাম": item.bank_name || "-",
         "স্লিপ নং": item.slip_number || "-",
-        "ফি এর খাতসমূহ": item.khatSummary || "মাসিক বেতন ও বকেয়া ফি",
+        "ফি এর খাতসমূহ": item.khatList ? item.khatList.map(k => `${k.name}: ${k.amt}৳`).join("\n") : (item.khatSummary || "মাসিক বেতন ও বকেয়া ফি"),
         "পরিমাণ (৳)": item.total_amount
       }));
     }
@@ -393,7 +408,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>মাধ্যম</th>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>ব্যাংক/শাখা</th>
                         <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>স্লিপ নং</th>
-                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left" }}>ফি এর খাতসমূহ (জমার বিবরণ)</th>
+                        <th style={{ padding: "8px", border: "1px solid black", textAlign: "left", minWidth: "260px" }}>ফি এর খাতসমূহ (জমার বিবরণ)</th>
                       </>
                     )}
                     <th style={{ padding: "8px", border: "1px solid black", textAlign: "right" }}>পরিমাণ (৳)</th>
@@ -418,7 +433,30 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.deposit_channel}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.bank_name || "-"}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.slip_number || "-"}</td>
-                          <td style={{ padding: "6px", border: "1px solid black", fontSize: "12px" }}>{item.khatSummary || "মাসিক বেতন ও বকেয়া ফি"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid black", verticalAlign: "top" }}>
+                            {item.khatList && item.khatList.length > 0 ? (
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", background: "#ffffff" }}>
+                                <thead>
+                                  <tr style={{ background: "#f1f3f5", borderBottom: "1px solid #ccc" }}>
+                                    <th style={{ padding: "3px 6px", border: "1px solid #ccc", textAlign: "left", fontSize: "10.5px" }}>খাত</th>
+                                    <th style={{ padding: "3px 6px", border: "1px solid #ccc", textAlign: "right", fontSize: "10.5px", width: "65px" }}>পরিমাণ</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {item.khatList.map((k, ki) => (
+                                    <tr key={ki} style={{ background: ki % 2 === 0 ? "#ffffff" : "#fbfbfb" }}>
+                                      <td style={{ padding: "3px 6px", border: "1px solid #ddd", textAlign: "left", color: "#111" }}>{k.name}</td>
+                                      <td style={{ padding: "3px 6px", border: "1px solid #ddd", textAlign: "right", fontWeight: "600", color: "#111", whiteSpace: "nowrap" }}>
+                                        {k.amt} ৳
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <span style={{ fontSize: "12px" }}>{item.khatSummary || "মাসিক বেতন ও বকেয়া ফি"}</span>
+                            )}
+                          </td>
                         </>
                       )}
                       
