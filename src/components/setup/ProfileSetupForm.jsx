@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
 import { Settings, Save, Upload, Lock, Unlock, KeyRound, ShieldCheck } from "lucide-react";
+import DataBackupSection from "@/components/setup/DataBackupSection";
 
 export default function ProfileSetupForm() {
   const { user } = useAuth();
@@ -343,6 +344,9 @@ export default function ProfileSetupForm() {
           </div>
         )}
       </div>
+
+      {/* Requirement: All Data Backup & Restore (Export / Import) */}
+      <DataBackupSection />
     </div>
   );
 }
