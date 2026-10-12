@@ -65,6 +65,24 @@ export default function Home() {
     }
   }, [user, selectedClassId]);
 
+  // Check for password recovery event or reset token in URL hash
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setShowPasswordModal(true);
+        toast("দয়া করে আপনার নতুন পাসওয়ার্ড লিখুন এবং আপডেট করুন।", { icon: "🔑" });
+      }
+    });
+
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      setShowPasswordModal(true);
+    }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
   const [registering, setRegistering] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
 
@@ -238,6 +256,45 @@ export default function Home() {
             </button>
           </form>
         </div>
+
+        {/* Change Password Modal for Password Recovery */}
+        {showPasswordModal && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
+            <div className="card" style={{ width: "100%", maxWidth: "400px", position: "relative" }}>
+              <h3 style={{ marginBottom: "20px", color: "var(--brand-primary)" }}>নতুন পাসওয়ার্ড সেট করুন</h3>
+              
+              <form onSubmit={handleUpdatePassword}>
+                <div style={{ marginBottom: "15px", position: "relative" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>নতুন পাসওয়ার্ড</label>
+                  <input 
+                    type={showNewPassword ? "text" : "password"} 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
+                    required
+                    style={{ width: "100%", padding: "10px", paddingRight: "40px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{ position: "absolute", right: "10px", top: "32px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+                  >
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                  <button type="button" onClick={() => setShowPasswordModal(false)} className="btn" style={{ border: "1px solid var(--border-color)", background: "transparent", color: "var(--text-primary)" }}>
+                    বাতিল
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    পাসওয়ার্ড সেভ করুন
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
