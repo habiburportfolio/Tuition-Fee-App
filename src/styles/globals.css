@@ -186,18 +186,52 @@ input:focus, select:focus {
     visibility: visible !important;
   }
 
-  /* Default Print Mode for other modals and pages (e.g. Student List, Reports) */
-  body:not(.receipt-print-mode) * {
+  /* Report Modal Print Mode */
+  body.report-print-mode {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.report-print-mode > *:not(.report-modal-portal) {
+    display: none !important;
+  }
+  .report-modal-portal,
+  .report-modal-portal * {
+    visibility: visible !important;
+  }
+
+  /* Deposit Slip Modal Print Mode */
+  body.deposit-print-mode {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.deposit-print-mode > *:not(.deposit-modal-portal) {
+    display: none !important;
+  }
+  .deposit-modal-portal,
+  .deposit-modal-portal * {
+    visibility: visible !important;
+  }
+
+  /* Default Print Mode for other modals and pages (e.g. Student List) */
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) * {
     visibility: hidden;
   }
-  body:not(.receipt-print-mode) #print-area,
-  body:not(.receipt-print-mode) #print-area *,
-  body:not(.receipt-print-mode) .printable-area,
-  body:not(.receipt-print-mode) .printable-area * {
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area,
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area *,
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area,
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area * {
     visibility: visible;
   }
-  body:not(.receipt-print-mode) #print-area,
-  body:not(.receipt-print-mode) .printable-area {
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) #print-area,
+  body:not(.receipt-print-mode):not(.report-print-mode):not(.deposit-print-mode) .printable-area {
     position: absolute;
     left: 0;
     top: 0;

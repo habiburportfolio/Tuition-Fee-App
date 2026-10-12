@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { Printer, X, Download, FileText, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -17,6 +18,23 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentClass, setCurrentClass] = useState(classInfo || null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    document.body.classList.add("report-print-mode");
+    return () => {
+      document.body.classList.remove("report-print-mode");
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     if (classInfo) {
@@ -90,8 +108,10 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
 
             if (depPayments) {
               const breakdownMap = {};
+              const discountMap = {};
               depPayments.forEach(p => {
                 if (!breakdownMap[p.deposit_id]) breakdownMap[p.deposit_id] = {};
+                if (!discountMap[p.deposit_id]) discountMap[p.deposit_id] = 0;
                 let parsed = false;
                 if (p.payment_method) {
                   try {
@@ -106,6 +126,9 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                       if (meta.fine && Number(meta.fine) > 0) {
                         breakdownMap[p.deposit_id]["বিলম্ব ফি"] = (breakdownMap[p.deposit_id]["বিলম্ব ফি"] || 0) + Number(meta.fine);
                       }
+                      if (meta.discount && Number(meta.discount) > 0) {
+                        discountMap[p.deposit_id] += Number(meta.discount);
+                      }
                     }
                   } catch {
                     // plain
@@ -119,9 +142,18 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
               filtered.forEach(d => {
                 const breakdown = breakdownMap[d.id] || {};
                 const entries = Object.entries(breakdown);
+                const grossSum = entries.reduce((s, [, a]) => s + Number(a || 0), 0);
+                const disc = (discountMap[d.id] && discountMap[d.id] > 0)
+                  ? discountMap[d.id]
+                  : Math.max(0, grossSum - Number(d.total_amount || 0));
+
                 if (entries.length > 0) {
-                  d.khatList = entries.map(([name, amt]) => ({ name, amt }));
-                  d.khatSummary = entries.map(([name, amt]) => `${name}: ${amt}৳`).join(", ");
+                  const list = entries.map(([name, amt]) => ({ name, amt }));
+                  if (disc > 0) {
+                    list.push({ name: "মওকুফ / ডিসকাউন্ট (-)", amt: -disc, isDiscount: true });
+                  }
+                  d.khatList = list;
+                  d.khatSummary = list.map(k => `${k.name}: ${k.amt}৳`).join(", ");
                 } else {
                   d.khatList = [{ name: "মাসিক বেতন ও বকেয়া ফি", amt: d.total_amount }];
                   d.khatSummary = `মাসিক বেতন ও বকেয়া ফি: ${d.total_amount}৳`;
@@ -302,21 +334,114 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
   
   const monthNames = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 
-  return (
-    <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-    }}>
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { position: absolute; left: 0; top: 0; width: 100%; height: auto; }
-          .print-hide { display: none !important; }
-        }
-      `}</style>
-      
-      <div className="card" style={{ width: "95%", maxWidth: "800px", padding: 0, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="report-modal-portal">
+      <div
+        className="report-modal-overlay"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="card report-modal-container">
+          <style>{`
+            .report-modal-portal {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              z-index: 1000;
+            }
+            .report-modal-overlay {
+              width: 100%;
+              height: 100%;
+              background-color: rgba(0, 0, 0, 0.65);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 16px;
+              box-sizing: border-box;
+            }
+            .report-modal-container {
+              width: 95%;
+              max-width: 820px;
+              padding: 0;
+              max-height: 92vh;
+              display: flex;
+              flex-direction: column;
+              background: var(--card-bg);
+              border-radius: var(--radius-lg);
+              box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+              overflow: hidden;
+            }
+
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 10mm 12mm;
+              }
+
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+              }
+
+              body.report-print-mode > *:not(.report-modal-portal) {
+                display: none !important;
+              }
+
+              .report-modal-portal,
+              .report-modal-overlay,
+              .report-modal-container {
+                position: static !important;
+                display: block !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+              }
+
+              .print-hide {
+                display: none !important;
+              }
+
+              #print-area {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+              }
+
+              table {
+                page-break-inside: auto !important;
+              }
+
+              thead {
+                display: table-header-group !important;
+              }
+
+              tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+            }
+          `}</style>
         
         <div className="print-hide" style={{ background: "var(--brand-primary)", color: "white", padding: "15px", borderRadius: "var(--radius-lg) var(--radius-lg) 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>রিপোর্ট প্রিন্ট</h3>
@@ -481,6 +606,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

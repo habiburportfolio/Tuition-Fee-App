@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
 import { X, Printer, Landmark, Building, Calendar, Hash, Check, CreditCard, Shield } from "lucide-react";
@@ -12,6 +13,23 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
   const [teacherProfile, setTeacherProfile] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    document.body.classList.add("deposit-print-mode");
+    return () => {
+      document.body.classList.remove("deposit-print-mode");
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -63,10 +81,11 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
     }
   }, [deposit?.id]);
 
-  // Aggregate fee breakdown (কোন কোন খাতে কত টাকা)
+  // Aggregate fee breakdown (কোন কোন খাতে কত টাকা এবং মোট ডিসকাউন্ট)
   const feeBreakdown = (() => {
     const summary = {};
-    let totalFromBreakdown = 0;
+    let totalGrossFromBreakdown = 0;
+    let totalDiscountFromPayments = 0;
 
     payments.forEach(p => {
       let parsed = false;
@@ -82,12 +101,16 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
               }
               const amt = Number(item.amount) || 0;
               summary[name] = (summary[name] || 0) + amt;
-              totalFromBreakdown += amt;
+              totalGrossFromBreakdown += amt;
             });
             // If fine was collected
             if (meta.fine && Number(meta.fine) > 0) {
               summary["বিলম্ব ফি / জরিমানা"] = (summary["বিলম্ব ফি / জরিমানা"] || 0) + Number(meta.fine);
-              totalFromBreakdown += Number(meta.fine);
+              totalGrossFromBreakdown += Number(meta.fine);
+            }
+            // If discount was given
+            if (meta.discount && Number(meta.discount) > 0) {
+              totalDiscountFromPayments += Number(meta.discount);
             }
           }
         } catch {
@@ -100,7 +123,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
         const defaultKhat = "মাসিক বেতন ও বকেয়া কালেকশন";
         const amt = Number(p.amount_paid) || 0;
         summary[defaultKhat] = (summary[defaultKhat] || 0) + amt;
-        totalFromBreakdown += amt;
+        totalGrossFromBreakdown += amt;
       }
     });
 
@@ -112,9 +135,21 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
         name: "সাধারণ শিক্ষার্থী ফি ও বকেয়া আদায়",
         amount: Number(currentDeposit.total_amount)
       });
+      totalGrossFromBreakdown = Number(currentDeposit.total_amount);
     }
 
-    return items;
+    const netAmount = Number(currentDeposit.total_amount) || 0;
+    // Calculate total discount: from payments metadata, or difference between gross and net amount
+    const discount = totalDiscountFromPayments > 0
+      ? totalDiscountFromPayments
+      : Math.max(0, totalGrossFromBreakdown - netAmount);
+
+    return {
+      items,
+      grossTotal: totalGrossFromBreakdown,
+      discount,
+      netTotal: netAmount
+    };
   })();
 
   const handleSaveEdit = async () => {
@@ -161,58 +196,109 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
     window.print();
   };
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.65)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: "16px"
-      }}
-    >
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #deposit-print-area, #deposit-print-area * {
-            visibility: visible !important;
-          }
-          #deposit-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 10px 20px !important;
-            background: white !important;
-            color: #111 !important;
-          }
-          .no-print-element {
-            display: none !important;
-          }
-        }
-      `}</style>
+  if (!mounted) return null;
 
+  return createPortal(
+    <div className="deposit-modal-portal">
       <div
-        className="card-glass"
-        style={{
-          width: "100%",
-          maxWidth: "760px",
-          padding: 0,
-          maxHeight: "92vh",
-          overflowY: "auto",
-          background: "var(--card-bg)"
+        className="deposit-modal-overlay"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
       >
+        <style>{`
+          .deposit-modal-portal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+          }
+          .deposit-modal-overlay {
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+          }
+          .deposit-modal-container {
+            width: 100%;
+            max-width: 760px;
+            padding: 0;
+            max-height: 92vh;
+            overflow-y: auto;
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+          }
+
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 10mm 15mm;
+            }
+
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: 100% !important;
+              overflow: hidden !important;
+            }
+
+            body.deposit-print-mode > *:not(.deposit-modal-portal) {
+              display: none !important;
+            }
+
+            .deposit-modal-portal,
+            .deposit-modal-overlay,
+            .deposit-modal-container {
+              position: static !important;
+              display: block !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              border: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              max-height: none !important;
+              overflow: visible !important;
+            }
+
+            .no-print-element {
+              display: none !important;
+            }
+
+            #deposit-print-area {
+              display: block !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 155mm !important;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+            }
+
+            #deposit-print-area * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+        `}</style>
+
+        <div className="card-glass deposit-modal-container">
         {/* Header Modal Bar */}
         <div
           className="no-print-element"
@@ -363,7 +449,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
                 </tr>
               </thead>
               <tbody>
-                {feeBreakdown.map((item, idx) => (
+                {feeBreakdown.items.map((item, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
                     <td style={{ padding: "8px 10px", color: "var(--text-secondary)" }}>{toBanglaNumber(idx + 1)}.</td>
                     <td style={{ padding: "8px 10px", fontWeight: "600" }}>{item.name}</td>
@@ -374,7 +460,27 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ background: "rgba(39, 174, 96, 0.08)", borderTop: "2px solid var(--border-color)" }}>
+                {feeBreakdown.discount > 0 && (
+                  <>
+                    <tr style={{ borderTop: "1.5px solid var(--border-color)", background: "rgba(0,0,0,0.02)" }}>
+                      <td colSpan="2" style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", color: "var(--text-secondary)", fontSize: "13px" }}>
+                        মোট ফি ও জরিমানা:
+                      </td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
+                        {feeBreakdown.grossTotal} ৳
+                      </td>
+                    </tr>
+                    <tr style={{ background: "rgba(235, 87, 87, 0.06)", color: "var(--brand-danger)" }}>
+                      <td colSpan="2" style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
+                        মওকুফ / ডিসকাউন্ট (-):
+                      </td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "700", fontSize: "13px" }}>
+                        - {feeBreakdown.discount} ৳
+                      </td>
+                    </tr>
+                  </>
+                )}
+                <tr style={{ background: "rgba(39, 174, 96, 0.08)", borderTop: feeBreakdown.discount > 0 ? "1.5px solid var(--border-color)" : "2px solid var(--border-color)" }}>
                   <td colSpan="2" style={{ padding: "10px", textAlign: "right", fontWeight: "800", fontSize: "14px" }}>
                     সর্বমোট জমার পরিমাণ:
                   </td>
@@ -387,7 +493,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
                       color: "var(--brand-success)"
                     }}
                   >
-                    {currentDeposit.total_amount} ৳
+                    {feeBreakdown.netTotal} ৳
                   </td>
                 </tr>
               </tfoot>
@@ -620,6 +726,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
