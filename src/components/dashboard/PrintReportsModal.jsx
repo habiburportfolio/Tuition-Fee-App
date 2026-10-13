@@ -660,7 +660,9 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
           )}
         </div>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+  </div>,
+  document.body
+);
 }
+

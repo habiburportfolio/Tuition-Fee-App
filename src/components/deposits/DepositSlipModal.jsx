@@ -735,7 +735,9 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
           </div>
         </div>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+  </div>,
+  document.body
+);
 }
+
