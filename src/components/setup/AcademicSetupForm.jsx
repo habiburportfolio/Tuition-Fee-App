@@ -57,6 +57,49 @@ export default function AcademicSetupForm() {
     setLoading(true);
 
     try {
+      // 1. Check that user session is actually valid in Supabase
+      const { data: authData, error: authCheckErr } = await supabase.auth.getUser();
+      if (authCheckErr || !authData?.user) {
+        await supabase.auth.signOut();
+        toast.error("আপনার অ্যাকাউন্টটি আর সচল নেই বা Supabase থেকে ডিলিট করা হয়েছে। অনুগ্রহ করে আবার সাইন আপ বা লগইন করুন।");
+        return;
+      }
+
+      // 2. Check that teacher record exists in teachers table (prevent foreign key violation)
+      const { data: teacherProfile } = await supabase
+        .from("teachers")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!teacherProfile) {
+        const defaultName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Teacher User";
+        const { error: profileErr } = await supabase
+          .from("teachers")
+          .upsert([
+            {
+              id: user.id,
+              email: user.email,
+              full_name: defaultName,
+              school_name: "বিদ্যালয়ের নাম",
+              role: "teacher",
+            }
+          ], { onConflict: "id" });
+
+        if (profileErr) {
+          console.error("Teacher self-heal error:", profileErr);
+          if (profileErr.code === "23505") {
+            throw new Error("এই ইমেইলটি দিয়ে পুরনো রেকর্ড রয়ে গেছে। Supabase-এর Table Editor > teachers টেবিল থেকে পুরনো রো ডিলিট করুন অথবা নতুন ইমেইল দিয়ে রেজিস্টার করুন।");
+          }
+          if (profileErr.code === "23503") {
+            await supabase.auth.signOut();
+            throw new Error("আপনার অ্যাকাউন্টটি Supabase থেকে ডিলিট করা হয়েছে। অনুগ্রহ করে পুনরায় সাইন আপ করুন।");
+          }
+          throw new Error("শিক্ষক প্রোফাইল পাওয়া যায়নি: " + profileErr.message);
+        }
+      }
+
+      // 3. Insert class
       const { data, error } = await supabase
         .from("academic_classes")
         .insert([
@@ -73,6 +116,9 @@ export default function AcademicSetupForm() {
       if (error) {
         if (error.code === "23505") {
           throw new Error("এই ক্লাসের ডেটা ইতোমধ্যে যুক্ত করা হয়েছে।");
+        }
+        if (error.code === "23503") {
+          throw new Error("শিক্ষক প্রোফাইল লিঙ্ক করা যায়নি (Foreign Key Error)। অনুগ্রহ করে একবার লগআউট করে পুনরায় লগইন করুন।");
         }
         throw error;
       }

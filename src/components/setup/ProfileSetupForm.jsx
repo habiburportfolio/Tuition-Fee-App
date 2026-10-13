@@ -87,9 +87,13 @@ export default function ProfileSetupForm() {
     setSaving(true);
     
     try {
+      const defaultName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Teacher User";
       const { error } = await supabase
         .from("teachers")
-        .update({
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: defaultName,
           school_name: formData.school_name,
           eiin_number: formData.eiin_number,
           school_email: formData.school_email,
@@ -97,8 +101,7 @@ export default function ProfileSetupForm() {
           head_teacher_phone: formData.head_teacher_phone,
           logo_url: formData.logo_url,
           signature_url: formData.signature_url
-        })
-        .eq("id", user.id);
+        }, { onConflict: "id" });
         
       if (error) throw error;
       toast.success("প্রোফাইল সফলভাবে আপডেট হয়েছে!");

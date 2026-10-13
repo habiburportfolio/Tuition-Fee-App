@@ -41,7 +41,16 @@ export const AuthProvider = ({ children }) => {
           .select("role")
           .maybeSingle();
 
-        if (newProfile && newProfile.role) {
+        if (insertErr) {
+          console.error("Error creating teacher profile in self-heal:", insertErr);
+          // If auth user was deleted from auth.users (foreign key error):
+          if (insertErr.code === "23503") {
+            console.warn("User does not exist in auth.users, signing out...");
+            await supabase.auth.signOut();
+            setUser(null);
+          }
+          setUserRole("teacher");
+        } else if (newProfile && newProfile.role) {
           setUserRole(newProfile.role);
         } else {
           setUserRole("teacher");
@@ -55,18 +64,47 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authUser = session?.user ?? null;
-      setUser(authUser);
-      await fetchUserProfile(authUser);
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setUser(null);
+          setUserRole("teacher");
+          setLoading(false);
+          return;
+        }
+
+        // Verify with Supabase Auth whether this user still exists (prevents ghost session after user deletion)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+          console.warn("User does not exist in Supabase auth. Purging stale session:", userError);
+          await supabase.auth.signOut();
+          setUser(null);
+          setUserRole("teacher");
+          setLoading(false);
+          return;
+        }
+
+        const authUser = userData.user;
+        setUser(authUser);
+        await fetchUserProfile(authUser);
+      } catch (err) {
+        console.error("fetchUser error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const authUser = session?.user ?? null;
+      async (event, session) => {
+        if (event === "SIGNED_OUT" || !session?.user) {
+          setUser(null);
+          setUserRole("teacher");
+          return;
+        }
+
+        const authUser = session.user;
         setUser(authUser);
         await fetchUserProfile(authUser);
       }
