@@ -13,8 +13,9 @@ export default function ReceiptModal({ receiptData, onClose }) {
   const [teacherProfile, setTeacherProfile] = useState(null);
   const [mounted, setMounted] = useState(false);
 
-  // Print layout options: "landscape2" (A4 Landscape, 2 copies) | "portrait1" (A4 Portrait, 1 copy)
+  // Print layout options: "landscape2" (A4 Landscape, 2 copies) | "landscape1" (A4 Landscape, 1 copy - half blank) | "portrait1" (A4 Portrait, 1 copy)
   const [printLayout, setPrintLayout] = useState("landscape2");
+  const [copy1Type, setCopy1Type] = useState("ছাত্র/ছাত্রীর কপি");
   const [copy2Type, setCopy2Type] = useState("বিদ্যালয়ের অফিস কপি");
 
   // Extract initial date
@@ -431,14 +432,18 @@ export default function ReceiptModal({ receiptData, onClose }) {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className={`card-glass receipt-modal-container ${printLayout === "landscape2" ? "modal-wide" : ""}`}>
+        <div className={`card-glass receipt-modal-container ${printLayout !== "portrait1" ? "modal-wide" : ""}`}>
           
           {/* Modal Header */}
           <div className="modal-header-bar no-print">
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <h3 style={{ margin: 0, fontSize: "17px" }}>ফি আদায়ের রসিদ</h3>
               <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "12px" }}>
-                {printLayout === "landscape2" ? "A4 ল্যান্ডস্কেপ (এক পেজে ২ কপি)" : "সিঙ্গেল কপি (১ পেজ)"}
+                {printLayout === "landscape2"
+                  ? "A4 ল্যান্ডস্কেপ (এক পেজে ২ কপি)"
+                  : printLayout === "landscape1"
+                  ? "A4 ল্যান্ডস্কেপ (১ কপি - অর্ধেক খালি)"
+                  : "ফুল পেজ পোর্ট্রেট (১ কপি)"}
               </span>
             </div>
             <button onClick={onClose} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", alignItems: "center" }}>
@@ -451,7 +456,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                 <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-primary)" }}>প্রিন্ট সাইজ:</span>
-                <div style={{ display: "inline-flex", background: "var(--bg-color)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                <div style={{ display: "inline-flex", background: "var(--bg-color)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border-color)", flexWrap: "wrap", gap: "3px" }}>
                   <button
                     type="button"
                     onClick={() => setPrintLayout("landscape2")}
@@ -470,9 +475,33 @@ export default function ReceiptModal({ receiptData, onClose }) {
                       transition: "all 0.2s"
                     }}
                   >
-                    <span>📄 A4 ল্যান্ডস্কেপ (এক পেজে ২ কপি)</span>
+                    <span>📄 A4 ল্যান্ডস্কেপ (২ কপি)</span>
                     <span style={{ fontSize: "10px", background: printLayout === "landscape2" ? "rgba(255,255,255,0.3)" : "#22c55e", color: "white", padding: "1px 6px", borderRadius: "10px", fontWeight: "bold" }}>
                       খরচ সাশ্রয়ী
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintLayout("landscape1")}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: printLayout === "landscape1" ? "700" : "500",
+                      background: printLayout === "landscape1" ? "var(--brand-primary)" : "transparent",
+                      color: printLayout === "landscape1" ? "white" : "var(--text-secondary)",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <span>📑 A4 ল্যান্ডস্কেপ (১ কপি - অর্ধেক খালি)</span>
+                    <span style={{ fontSize: "10px", background: printLayout === "landscape1" ? "rgba(255,255,255,0.3)" : "rgba(0,112,243,0.15)", color: printLayout === "landscape1" ? "white" : "var(--brand-primary)", padding: "1px 6px", borderRadius: "10px", fontWeight: "bold" }}>
+                      কাগজ সাশ্রয়
                     </span>
                   </button>
 
@@ -494,7 +523,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
                       transition: "all 0.2s"
                     }}
                   >
-                    <span>📑 একক কপি (পোর্ট্রেট)</span>
+                    <span>📃 ফুল পেজ (পোর্ট্রেট)</span>
                   </button>
                 </div>
               </div>
@@ -519,6 +548,31 @@ export default function ReceiptModal({ receiptData, onClose }) {
                     <option value="বিদ্যালয়ের অফিস কপি">বিদ্যালয়ের অফিস কপি</option>
                     <option value="ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)">ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)</option>
                     <option value="অ্যাকাউন্টস কপি">অ্যাকাউন্টস কপি</option>
+                  </select>
+                </div>
+              )}
+
+              {(printLayout === "landscape1" || printLayout === "portrait1") && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+                  <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>কপির শিরোনাম:</span>
+                  <select
+                    value={copy1Type}
+                    onChange={(e) => setCopy1Type(e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "11.5px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-color)",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      fontWeight: "600"
+                    }}
+                  >
+                    <option value="ছাত্র/ছাত্রীর কপি">ছাত্র/ছাত্রীর কপি</option>
+                    <option value="বিদ্যালয়ের অফিস কপি">বিদ্যালয়ের অফিস কপি</option>
+                    <option value="অ্যাকাউন্টস কপি">অ্যাকাউন্টস কপি</option>
+                    <option value="ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)">ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)</option>
                   </select>
                 </div>
               )}
@@ -554,18 +608,23 @@ export default function ReceiptModal({ receiptData, onClose }) {
 
             {printLayout === "landscape2" && (
               <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                💡 প্রিন্ট করলে মাঝখান দিয়ে কেটে আলাদা করতে পারবেন
+                💡 এক পেজে ২টি রসিদ প্রিন্ট হবে, মাঝখান দিয়ে কেটে আলাদা করতে পারবেন
+              </span>
+            )}
+            {printLayout === "landscape1" && (
+              <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600" }}>
+                💡 অর্ধেক পেজে ১টি রসিদ হবে, বাকি অর্ধেক খালি থাকবে (কাটার দাগ সহ)
               </span>
             )}
           </div>
 
-          {/* Printable Area: Dual Layout or Single Layout */}
+          {/* Printable Area: Dual Layout, Single Landscape with blank half, or Single Portrait Layout */}
           <div id="printable-receipt" className={`printable-receipt-wrapper ${printLayout}`}>
             {printLayout === "landscape2" ? (
               <div className="receipt-dual-layout">
                 {/* 1st Half: Student Copy */}
                 <div className="receipt-col student-copy">
-                  {renderReceiptSlip("ছাত্র/ছাত্রীর কপি")}
+                  {renderReceiptSlip(copy1Type)}
                 </div>
 
                 {/* Middle Cutting Line */}
@@ -581,10 +640,39 @@ export default function ReceiptModal({ receiptData, onClose }) {
                   {renderReceiptSlip(copy2Type)}
                 </div>
               </div>
+            ) : printLayout === "landscape1" ? (
+              <div className="receipt-dual-layout single-landscape-layout">
+                {/* 1st Half: Single Receipt */}
+                <div className="receipt-col student-copy">
+                  {renderReceiptSlip(copy1Type)}
+                </div>
+
+                {/* Middle Cutting Line */}
+                <div className="cutting-divider" aria-hidden="true">
+                  <div className="cutting-line-indicator">
+                    <span className="cutting-scissor-icon">✂</span>
+                    <span className="cutting-label-text">কেটে আলাদা করুন</span>
+                  </div>
+                </div>
+
+                {/* 2nd Half: Completely Blank for Print */}
+                <div className="receipt-col receipt-col-blank">
+                  <div className="blank-half-card no-print">
+                    <div className="blank-half-icon">✂️</div>
+                    <div className="blank-half-title">বাকি অর্ধেক অংশ খালি থাকবে</div>
+                    <div className="blank-half-desc">
+                      A4 ল্যান্ডস্কেপ পেজের ডান পাশের অর্ধেক অংশ সম্পূর্ণ ফাঁকা (Blank) প্রিন্ট হবে।
+                    </div>
+                    <div className="blank-half-tip">
+                      💡 প্রিন্ট শেষে মাঝের কাটিং দাগ বরাবর কেটে নিন। বাকি অর্ধেক খালি কাগজ সংরক্ষণ করে অন্য রসিদে ব্যবহার করতে পারবেন!
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="receipt-single-layout">
                 <div className="receipt-col single-copy">
-                  {renderReceiptSlip("ছাত্র/ছাত্রীর কপি")}
+                  {renderReceiptSlip(copy1Type)}
                 </div>
               </div>
             )}
@@ -662,7 +750,12 @@ export default function ReceiptModal({ receiptData, onClose }) {
                   fontSize: "14px"
                 }}
               >
-                <Printer size={18} /> {printLayout === "landscape2" ? "A4 ল্যান্ডস্কেপ রসিদ প্রিন্ট (২ কপি)" : "সিঙ্গেল রসিদ প্রিন্ট করুন"}
+                <Printer size={18} />{" "}
+                {printLayout === "landscape2"
+                  ? "A4 ল্যান্ডস্কেপ রসিদ প্রিন্ট (২ কপি)"
+                  : printLayout === "landscape1"
+                  ? "A4 ল্যান্ডস্কেপ রসিদ প্রিন্ট (১ কপি - অর্ধেক খালি)"
+                  : "ফুল পেজ রসিদ প্রিন্ট করুন"}
               </button>
 
               <button
@@ -827,6 +920,56 @@ export default function ReceiptModal({ receiptData, onClose }) {
           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
           overflow: hidden;
         }
+        .receipt-dual-layout .receipt-col.receipt-col-blank {
+          background: rgba(0, 0, 0, 0.01);
+          border: 1.5px dashed var(--border-color);
+          box-shadow: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .blank-half-card {
+          width: 100%;
+          height: 100%;
+          min-height: 380px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          text-align: center;
+          background: rgba(0, 112, 243, 0.02);
+          border-radius: var(--radius-md);
+          box-sizing: border-box;
+        }
+        .blank-half-icon {
+          font-size: 36px;
+          margin-bottom: 12px;
+        }
+        .blank-half-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 8px;
+        }
+        .blank-half-desc {
+          font-size: 12px;
+          color: var(--text-secondary);
+          line-height: 1.6;
+          max-width: 260px;
+          margin-bottom: 14px;
+        }
+        .blank-half-tip {
+          font-size: 11.5px;
+          color: #16a34a;
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid rgba(34, 197, 94, 0.25);
+          padding: 8px 12px;
+          border-radius: 6px;
+          line-height: 1.4;
+          font-weight: 600;
+          max-width: 270px;
+        }
 
         @media (max-width: 768px) {
           .receipt-dual-layout {
@@ -860,8 +1003,8 @@ export default function ReceiptModal({ receiptData, onClose }) {
 
         @media print {
           @page {
-            size: ${printLayout === "landscape2" ? "A4 landscape" : "A4 portrait"};
-            margin: ${printLayout === "landscape2" ? "5mm 6mm" : "10mm 15mm"};
+            size: ${printLayout === "portrait1" ? "A4 portrait" : "A4 landscape"};
+            margin: ${printLayout === "portrait1" ? "10mm 15mm" : "5mm 6mm"};
           }
 
           :global(html), :global(body) {
@@ -948,12 +1091,27 @@ export default function ReceiptModal({ receiptData, onClose }) {
             width: 137mm !important;
             max-width: 137mm !important;
             flex: 1 1 137mm !important;
+            max-height: 198mm !important;
             border: 1.2px solid #000000 !important;
             border-radius: 4px !important;
             box-shadow: none !important;
             background: #ffffff !important;
             color: #000000 !important;
             box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Blank Half in 1-Copy Landscape Print */
+          .receipt-dual-layout .receipt-col.receipt-col-blank {
+            width: 137mm !important;
+            max-width: 137mm !important;
+            flex: 1 1 137mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
