@@ -99,6 +99,54 @@ export default function StudentList({ classId, classInfo }) {
     });
   };
 
+  const handleBulkSetWaiver = async (newWaiverStatus) => {
+    if (selectedIds.length === 0) return;
+
+    const waiverLabelMap = {
+      "উপবৃত্তিপ্রাপ্ত (বেতন ফ্রি)": "উপবৃত্তিপ্রাপ্ত",
+      "বৃত্তিপ্রাপ্ত (বেতন ফ্রি)": "বৃত্তিপ্রাপ্ত",
+      "Full Free": "ফুল ফ্রি (১০০%)",
+      "Half Free": "অর্ধ-বেতন (৫০%)",
+      "None": "সাধারণ (ছাড় নেই)"
+    };
+    const label = waiverLabelMap[newWaiverStatus] || newWaiverStatus;
+
+    guardAction(`নির্বাচিত ${selectedIds.length} জন শিক্ষার্থীকে ${label} সুবিধা নির্ধারণ`, async () => {
+      setLoading(true);
+      try {
+        const { error } = await supabase
+          .from("students")
+          .update({ waiver_status: newWaiverStatus })
+          .in("id", selectedIds);
+
+        if (error) throw error;
+
+        toast.success(`✅ নির্বাচিত ${selectedIds.length} জন শিক্ষার্থীকে "${label}" হিসেবে নির্ধারণ করা হয়েছে!`);
+        fetchStudents();
+      } catch (error) {
+        toast.error(`❌ আপডেট এরর: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  const handleInlineChangeWaiver = async (studentId, newWaiverStatus) => {
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({ waiver_status: newWaiverStatus })
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      toast.success("✅ সুবিধা সফলভাবে আপডেট হয়েছে!");
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, waiver_status: newWaiverStatus } : s));
+    } catch (error) {
+      toast.error(`❌ আপডেট এরর: ${error.message}`);
+    }
+  };
+
   const handleDeleteAllInClass = () => {
     if (students.length === 0) return toast.error("এই ক্লাসে মোছার মতো কোনো শিক্ষার্থী নেই!");
     const groupName = currentClass?.group_name ? `(${currentClass.group_name})` : "";
@@ -217,6 +265,10 @@ export default function StudentList({ classId, classInfo }) {
 
   const filteredStudents = students.filter(s => {
     if (filterWaiver === "all") return true;
+    if (filterWaiver === "upobritti") return s.waiver_status && s.waiver_status.includes("উপবৃত্তি");
+    if (filterWaiver === "britti") return s.waiver_status && s.waiver_status.includes("বৃত্তি") && !s.waiver_status.includes("উপবৃত্তি");
+    if (filterWaiver === "full_free") return s.waiver_status === "Full Free";
+    if (filterWaiver === "half_free") return s.waiver_status === "Half Free";
     if (filterWaiver === "waiver") return s.waiver_status && s.waiver_status !== "None";
     if (filterWaiver === "due") return Number(s.opening_due) > 0;
     return true;
@@ -302,78 +354,231 @@ export default function StudentList({ classId, classInfo }) {
       </div>
 
       {/* Filter Chips (Hidden in Print) */}
-      <div className="no-print" style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="no-print" style={{ display: "flex", gap: "8px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "13px", fontWeight: "bold", color: "var(--text-secondary)" }}>ফিল্টার:</span>
         <button
           onClick={() => setFilterWaiver("all")}
           className="btn"
           style={{
-            padding: "4px 12px", fontSize: "12px",
+            padding: "4px 10px", fontSize: "12px",
             background: filterWaiver === "all" ? "var(--brand-primary)" : "transparent",
             color: filterWaiver === "all" ? "white" : "var(--text-primary)",
-            border: "1px solid var(--border-color)"
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
           }}
         >
           সবাই ({students.length})
         </button>
+
         <button
-          onClick={() => setFilterWaiver("waiver")}
+          onClick={() => setFilterWaiver("upobritti")}
           className="btn"
           style={{
-            padding: "4px 12px", fontSize: "12px",
-            background: filterWaiver === "waiver" ? "var(--brand-success)" : "transparent",
-            color: filterWaiver === "waiver" ? "white" : "var(--text-primary)",
-            border: "1px solid var(--border-color)"
+            padding: "4px 10px", fontSize: "12px",
+            background: filterWaiver === "upobritti" ? "#16a34a" : "transparent",
+            color: filterWaiver === "upobritti" ? "white" : "var(--text-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
           }}
         >
-          🎓 উপবৃত্তি ও বৃত্তিপ্রাপ্ত ({students.filter(s => s.waiver_status && s.waiver_status !== "None").length})
+          🎓 উপবৃত্তিপ্রাপ্ত ({students.filter(s => s.waiver_status?.includes("উপবৃত্তি")).length})
         </button>
+
+        <button
+          onClick={() => setFilterWaiver("britti")}
+          className="btn"
+          style={{
+            padding: "4px 10px", fontSize: "12px",
+            background: filterWaiver === "britti" ? "#0070f3" : "transparent",
+            color: filterWaiver === "britti" ? "white" : "var(--text-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
+          }}
+        >
+          🏆 বৃত্তিপ্রাপ্ত ({students.filter(s => s.waiver_status?.includes("বৃত্তি") && !s.waiver_status?.includes("উপবৃত্তি")).length})
+        </button>
+
+        <button
+          onClick={() => setFilterWaiver("full_free")}
+          className="btn"
+          style={{
+            padding: "4px 10px", fontSize: "12px",
+            background: filterWaiver === "full_free" ? "#059669" : "transparent",
+            color: filterWaiver === "full_free" ? "white" : "var(--text-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
+          }}
+        >
+          💯 ফুল ফ্রি ({students.filter(s => s.waiver_status === "Full Free").length})
+        </button>
+
+        <button
+          onClick={() => setFilterWaiver("half_free")}
+          className="btn"
+          style={{
+            padding: "4px 10px", fontSize: "12px",
+            background: filterWaiver === "half_free" ? "#d97706" : "transparent",
+            color: filterWaiver === "half_free" ? "white" : "var(--text-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
+          }}
+        >
+          🌓 আংশিক ফ্রি ({students.filter(s => s.waiver_status === "Half Free").length})
+        </button>
+
         <button
           onClick={() => setFilterWaiver("due")}
           className="btn"
           style={{
-            padding: "4px 12px", fontSize: "12px",
+            padding: "4px 10px", fontSize: "12px",
             background: filterWaiver === "due" ? "var(--brand-danger)" : "transparent",
             color: filterWaiver === "due" ? "white" : "var(--text-primary)",
-            border: "1px solid var(--border-color)"
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px"
           }}
         >
           ⚠️ বকেয়া আছে ({students.filter(s => Number(s.opening_due) > 0).length})
         </button>
       </div>
 
-      {/* Selected Action Bar */}
+      {/* Selected Action Bar: Tick Marks Options */}
       {selectedIds.length > 0 && (
         <div className="no-print" style={{
-          padding: "10px 15px",
-          backgroundColor: "rgba(231, 76, 60, 0.1)",
-          borderRadius: "var(--radius-sm)",
-          border: "1px solid var(--brand-danger)",
+          padding: "12px 16px",
+          backgroundColor: "rgba(0, 112, 243, 0.05)",
+          borderRadius: "var(--radius-md)",
+          border: "1.5px solid var(--brand-primary)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "15px",
+          marginBottom: "16px",
           flexWrap: "wrap",
-          gap: "10px"
+          gap: "10px",
+          boxShadow: "0 2px 8px rgba(0, 112, 243, 0.06)"
         }}>
-          <span style={{ fontWeight: "bold", color: "var(--brand-danger)", fontSize: "14px" }}>
-            {selectedIds.length} জন শিক্ষার্থী সিলেক্ট করা হয়েছে
-          </span>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontWeight: "800", color: "var(--brand-primary)", fontSize: "14px" }}>
+              ✓ নির্বাচিত: {selectedIds.length} জন শিক্ষার্থী
+            </span>
             <button
               onClick={() => setSelectedIds([])}
               className="btn"
-              style={{ padding: "6px 12px", fontSize: "12px", background: "white", border: "1px solid var(--border-color)" }}
+              style={{ padding: "3px 8px", fontSize: "11px", background: "white", border: "1px solid var(--border-color)" }}
             >
               বাতিল
             </button>
+          </div>
+
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-secondary)" }}>
+              সুবিধা নির্ধারণ করুন:
+            </span>
+
             <button
-              onClick={handleDeleteSelected}
-              className="btn btn-danger"
-              style={{ padding: "6px 14px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+              onClick={() => handleBulkSetWaiver("উপবৃত্তিপ্রাপ্ত (বেতন ফ্রি)")}
+              className="btn"
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                fontWeight: "700",
+                background: "rgba(39, 174, 96, 0.15)",
+                color: "#16a34a",
+                border: "1.5px solid #16a34a",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+              }}
+              title="নির্বাচিত শিক্ষার্থীদের উপবৃত্তিপ্রাপ্ত হিসেবে নির্ধারণ করুন"
             >
-              <Trash2 size={14} /> নির্বাচিত {selectedIds.length} জন মুছুন
+              🎓 উপবৃত্তি
             </button>
+
+            <button
+              onClick={() => handleBulkSetWaiver("বৃত্তিপ্রাপ্ত (বেতন ফ্রি)")}
+              className="btn"
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                fontWeight: "700",
+                background: "rgba(0, 112, 243, 0.15)",
+                color: "#0070f3",
+                border: "1.5px solid #0070f3",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+              }}
+              title="নির্বাচিত শিক্ষার্থীদের মেধা বৃত্তিপ্রাপ্ত হিসেবে নির্ধারণ করুন"
+            >
+              🏆 মেধা বৃত্তি
+            </button>
+
+            <button
+              onClick={() => handleBulkSetWaiver("Full Free")}
+              className="btn"
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                fontWeight: "700",
+                background: "rgba(16, 185, 129, 0.15)",
+                color: "#059669",
+                border: "1.5px solid #059669",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+              }}
+              title="নির্বাচিত শিক্ষার্থীদের বিনা-বেতন (১০০% ছাড়) নির্ধারণ করুন"
+            >
+              💯 ফুল ফ্রি
+            </button>
+
+            <button
+              onClick={() => handleBulkSetWaiver("Half Free")}
+              className="btn"
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                fontWeight: "700",
+                background: "rgba(245, 158, 11, 0.15)",
+                color: "#d97706",
+                border: "1.5px solid #d97706",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+              }}
+              title="নির্বাচিত শিক্ষার্থীদের অর্ধ-বেতন (৫০% ছাড়) নির্ধারণ করুন"
+            >
+              🌓 আংশিক ফ্রি
+            </button>
+
+            <button
+              onClick={() => handleBulkSetWaiver("None")}
+              className="btn"
+              style={{
+                padding: "5px 8px",
+                fontSize: "12px",
+                background: "white",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "6px"
+              }}
+              title="সুবিধা বাতিল করে সাধারণ শিক্ষার্থী করুন"
+            >
+              ❌ সাধারণ
+            </button>
+
+            {userRole !== 'assistant' && (
+              <button
+                onClick={handleDeleteSelected}
+                className="btn btn-danger"
+                style={{ padding: "5px 10px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", marginLeft: "6px" }}
+              >
+                <Trash2 size={13} /> মুছুন ({selectedIds.length})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -448,7 +653,52 @@ export default function StudentList({ classId, classInfo }) {
                         {getGroupBadge(currentClass?.group_name)}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {getWaiverBadge(student.waiver_status)}
+                        <div className="print-only">
+                          {getWaiverBadge(student.waiver_status)}
+                        </div>
+                        <div className="no-print" style={{ display: "inline-flex", alignItems: "center" }}>
+                          <select
+                            value={student.waiver_status || "None"}
+                            onChange={(e) => handleInlineChangeWaiver(student.id, e.target.value)}
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "11.5px",
+                              fontWeight: "700",
+                              borderRadius: "var(--radius-full)",
+                              border: student.waiver_status && student.waiver_status !== "None"
+                                ? (student.waiver_status.includes("উপবৃত্তি") ? "1.5px solid var(--brand-success)"
+                                  : student.waiver_status.includes("বৃত্তি") ? "1.5px solid var(--brand-primary)"
+                                  : student.waiver_status === "Full Free" ? "1.5px solid #059669"
+                                  : student.waiver_status === "Half Free" ? "1.5px solid #d97706"
+                                  : "1px solid var(--border-color)")
+                                : "1px solid var(--border-color)",
+                              background: student.waiver_status && student.waiver_status !== "None"
+                                ? (student.waiver_status.includes("উপবৃত্তি") ? "rgba(39, 174, 96, 0.12)"
+                                  : student.waiver_status.includes("বৃত্তি") ? "rgba(0, 112, 243, 0.12)"
+                                  : student.waiver_status === "Full Free" ? "rgba(16, 185, 129, 0.12)"
+                                  : student.waiver_status === "Half Free" ? "rgba(245, 158, 11, 0.12)"
+                                  : "transparent")
+                                : "transparent",
+                              color: student.waiver_status && student.waiver_status !== "None"
+                                ? (student.waiver_status.includes("উপবৃত্তি") ? "var(--brand-success)"
+                                  : student.waiver_status.includes("বৃত্তি") ? "var(--brand-primary)"
+                                  : student.waiver_status === "Full Free" ? "#059669"
+                                  : student.waiver_status === "Half Free" ? "#d97706"
+                                  : "var(--text-primary)")
+                                : "var(--text-secondary)",
+                              cursor: "pointer",
+                              outline: "none"
+                            }}
+                            title="সুবিধা বা বৃত্তি পরিবর্তন করুন"
+                          >
+                            <option value="None">সাধারণ (ছাড় নেই)</option>
+                            <option value="উপবৃত্তিপ্রাপ্ত (বেতন ফ্রি)">🎓 উপবৃত্তিপ্রাপ্ত</option>
+                            <option value="বৃত্তিপ্রাপ্ত (বেতন ফ্রি)">🏆 বৃত্তিপ্রাপ্ত</option>
+                            <option value="Full Free">💯 ফুল ফ্রি (১০০%)</option>
+                            <option value="Half Free">🌓 আংশিক ফ্রি (৫০%)</option>
+                            <option value="Special">বিশেষ ছাড়</option>
+                          </select>
+                        </div>
                       </td>
                       <td style={{ padding: "12px", fontSize: "13px", color: "var(--text-secondary)" }}>
                         {student.parent_name && <div>{student.parent_name}</div>}
