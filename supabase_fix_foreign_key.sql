@@ -3,7 +3,16 @@
 -- Run this script in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 -- ==============================================================================
 
--- 1. Fix Foreign Key constraint on teachers table to CASCADE on delete
+-- 1. Ensure all required columns exist in the teachers table
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'teacher';
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS eiin_number TEXT;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS school_email TEXT;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS head_teacher_phone TEXT;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS signature_url TEXT;
+
+-- 2. Fix Foreign Key constraint on teachers table to CASCADE on delete
 -- (When a user is deleted from auth.users, their teacher profile and classes will auto-delete cleanly)
 ALTER TABLE public.teachers
   DROP CONSTRAINT IF EXISTS teachers_id_fkey;
@@ -14,11 +23,11 @@ ALTER TABLE public.teachers
     REFERENCES auth.users(id)
     ON DELETE CASCADE;
 
--- 2. Remove orphaned records from teachers table (records whose auth.user was deleted)
+-- 3. Remove orphaned records from teachers table (records whose auth.user was deleted)
 DELETE FROM public.teachers
 WHERE id NOT IN (SELECT id FROM auth.users);
 
--- 3. Ensure all existing users in auth.users have a corresponding record in public.teachers
+-- 4. Ensure all existing users in auth.users have a corresponding record in public.teachers
 INSERT INTO public.teachers (id, email, full_name, school_name, role)
 SELECT 
   id, 
@@ -30,7 +39,7 @@ FROM auth.users
 ON CONFLICT (id) DO UPDATE 
 SET email = EXCLUDED.email;
 
--- 4. Create trigger to automatically create a teacher profile whenever a new user signs up in auth.users
+-- 5. Create trigger to automatically create a teacher profile whenever a new user signs up in auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_teacher()
 RETURNS TRIGGER AS $$
 BEGIN
