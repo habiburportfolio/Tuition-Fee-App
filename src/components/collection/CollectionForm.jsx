@@ -44,6 +44,7 @@ export default function CollectionForm({ classId, classInfo }) {
   // Post-payment & History
   const [receiptData, setReceiptData] = useState(null);
   const [recentPayments, setRecentPayments] = useState([]);
+  const [collectionScope, setCollectionScope] = useState("current"); // "current" | "all"
 
   // On-the-spot dynamic fee heads & Add Fee Modal state
   const [customOnTheSpotFees, setCustomOnTheSpotFees] = useState([]);
@@ -62,37 +63,44 @@ export default function CollectionForm({ classId, classInfo }) {
     }
   }, [classId, classInfo]);
 
-  useEffect(() => {
-    const fetchRecentPayments = async () => {
-      if (!classId) return;
-      const { data } = await supabase
+  const fetchRecentPayments = async (scope = collectionScope) => {
+    if (!classId && scope === "current") return;
+
+    let query;
+    if (scope === "current" && classId) {
+      query = supabase
         .from("payments")
-        .select("*, students(full_name, roll_no, class_id, waiver_status, parent_phone)")
+        .select("*, students!inner(full_name, roll_no, class_id, waiver_status, parent_phone, academic_classes(id, class_name, section_name, group_name))")
+        .eq("students.class_id", classId)
         .eq("is_voided", false)
         .is("deposit_id", null)
         .order("paid_at", { ascending: false })
-        .limit(5);
-      if (data) setRecentPayments(data);
-    };
+        .limit(8);
+    } else {
+      query = supabase
+        .from("payments")
+        .select("*, students(full_name, roll_no, class_id, waiver_status, parent_phone, academic_classes(id, class_name, section_name, group_name))")
+        .eq("is_voided", false)
+        .is("deposit_id", null)
+        .order("paid_at", { ascending: false })
+        .limit(8);
+    }
 
+    const { data } = await query;
+    if (data) setRecentPayments(data);
+  };
+
+  useEffect(() => {
     if (classId) {
       supabase.from("fees_setup").select("*").eq("class_id", classId).eq("is_active", true)
         .then(({ data }) => setFees(data || []));
         
-      fetchRecentPayments();
+      fetchRecentPayments(collectionScope);
     }
-  }, [classId]);
+  }, [classId, collectionScope]);
 
   const fetchRecentPaymentsForSubmit = async () => {
-    if (!classId) return;
-    const { data } = await supabase
-      .from("payments")
-      .select("*, students(full_name, roll_no, waiver_status, parent_phone)")
-      .eq("is_voided", false)
-      .is("deposit_id", null)
-      .order("paid_at", { ascending: false })
-      .limit(5);
-    if (data) setRecentPayments(data);
+    fetchRecentPayments(collectionScope);
   };
 
   const handleSearch = async (e) => {
@@ -462,7 +470,7 @@ export default function CollectionForm({ classId, classInfo }) {
 
     setReceiptData({
       student: pay.students,
-      classInfo: currentClass,
+      classInfo: pay.students?.academic_classes || currentClass,
       payment: {
         id: pay.id,
         amount_paid: pay.amount_paid,
@@ -857,61 +865,123 @@ export default function CollectionForm({ classId, classInfo }) {
       )}
 
       {/* Recent Transactions */}
-      {!student && recentPayments.length > 0 && (
+      {!student && (
         <div style={{ marginTop: "40px" }}>
-          <h4 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "15px", color: "var(--text-secondary)" }}>
-            <Clock size={18} /> সাম্প্রতিক কালেকশন (Cash in Hand)
-          </h4>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "500px" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
-                  <th style={{ padding: "10px" }}>রসিদ নং</th>
-                  <th style={{ padding: "10px" }}>স্টুডেন্ট</th>
-                  <th style={{ padding: "10px" }}>বিভাগ</th>
-                  <th style={{ padding: "10px" }}>টাকা</th>
-                  <th style={{ padding: "10px", textAlign: "right" }}>অ্যাকশন</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentPayments.map(pay => (
-                  <tr key={pay.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <td style={{ padding: "10px" }}>{pay.receipt_no}</td>
-                    <td style={{ padding: "10px" }}>
-                      <b>{pay.students?.full_name}</b> <br />
-                      <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রোল: {pay.students?.roll_no}</span>
-                    </td>
-                    <td style={{ padding: "10px" }}>
-                      {currentClass?.group_name || "সাধারণ"}
-                    </td>
-                    <td style={{ padding: "10px", fontWeight: "bold", color: "var(--brand-success)" }}>
-                      {pay.amount_paid} ৳
-                    </td>
-                    <td style={{ padding: "10px", textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: "6px" }}>
-                        <button
-                          onClick={() => handlePrintRecentReceipt(pay)}
-                          className="btn"
-                          style={{ padding: "4px 8px", fontSize: "12px", background: "transparent", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                        >
-                          <Printer size={13} /> রসিদ
-                        </button>
-                        {userRole !== "assistant" && (
-                          <button 
-                            onClick={() => handleVoidPayment(pay)}
-                            className="btn" 
-                            style={{ padding: "4px 8px", fontSize: "12px", background: "transparent", border: "1px solid var(--brand-danger)", color: "var(--brand-danger)", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                          >
-                            <XCircle size={13} /> বাতিল
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "10px" }}>
+            <h4 style={{ display: "flex", alignItems: "center", gap: "8px", margin: 0, color: "var(--text-secondary)" }}>
+              <Clock size={18} /> সাম্প্রতিক কালেকশন (Cash in Hand)
+            </h4>
+
+            {/* Scope Filter: Current Class vs All Classes */}
+            <div style={{ display: "inline-flex", background: "var(--bg-color)", padding: "2px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCollectionScope("current");
+                  fetchRecentPayments("current");
+                }}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  fontWeight: collectionScope === "current" ? "700" : "500",
+                  background: collectionScope === "current" ? "var(--brand-primary)" : "transparent",
+                  color: collectionScope === "current" ? "white" : "var(--text-secondary)",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                এই ক্লাসের ({currentClass?.class_name || ""} {currentClass?.group_name ? `[${currentClass.group_name}]` : ""})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCollectionScope("all");
+                  fetchRecentPayments("all");
+                }}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  fontWeight: collectionScope === "all" ? "700" : "500",
+                  background: collectionScope === "all" ? "var(--brand-primary)" : "transparent",
+                  color: collectionScope === "all" ? "white" : "var(--text-secondary)",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                সকল ক্লাসের ক্যাশ
+              </button>
+            </div>
           </div>
+
+          {recentPayments.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "25px", background: "var(--card-bg)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", color: "var(--text-secondary)", fontSize: "13px" }}>
+              {collectionScope === "current" 
+                ? "এই ক্লাসে সম্প্রতি কোনো ফি আদায় করা হয়নি।" 
+                : "বর্তমানে কোনো অবিতরণকৃত কালেকশন নেই।"}
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "500px" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
+                    <th style={{ padding: "10px" }}>রসিদ নং</th>
+                    <th style={{ padding: "10px" }}>স্টুডেন্ট</th>
+                    <th style={{ padding: "10px" }}>শ্রেণি ও বিভাগ</th>
+                    <th style={{ padding: "10px" }}>টাকা</th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPayments.map(pay => {
+                    const studentClass = pay.students?.academic_classes;
+                    return (
+                      <tr key={pay.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        <td style={{ padding: "10px" }}>{pay.receipt_no}</td>
+                        <td style={{ padding: "10px" }}>
+                          <b>{pay.students?.full_name}</b> <br />
+                          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রোল: {pay.students?.roll_no}</span>
+                        </td>
+                        <td style={{ padding: "10px" }}>
+                          {studentClass ? (
+                            <span>
+                              {studentClass.class_name} {studentClass.group_name ? `(${studentClass.group_name})` : ""}{studentClass.section_name ? ` [${studentClass.section_name}]` : ""}
+                            </span>
+                          ) : (
+                            <span>{currentClass?.class_name} ({currentClass?.group_name || "সাধারণ"})</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px", fontWeight: "bold", color: "var(--brand-success)" }}>
+                          {pay.amount_paid} ৳
+                        </td>
+                        <td style={{ padding: "10px", textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            <button
+                              onClick={() => handlePrintRecentReceipt(pay)}
+                              className="btn"
+                              style={{ padding: "4px 8px", fontSize: "12px", background: "transparent", border: "1px solid var(--brand-primary)", color: "var(--brand-primary)", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                            >
+                              <Printer size={13} /> রসিদ
+                            </button>
+                            {userRole !== "assistant" && (
+                              <button 
+                                onClick={() => handleVoidPayment(pay)}
+                                className="btn" 
+                                style={{ padding: "4px 8px", fontSize: "12px", background: "transparent", border: "1px solid var(--brand-danger)", color: "var(--brand-danger)", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                              >
+                                <XCircle size={13} /> বাতিল
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
