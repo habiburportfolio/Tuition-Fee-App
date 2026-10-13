@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
-import { X, Send, Printer, Calendar, Edit2, Check } from "lucide-react";
+import { X, Send, Printer, Calendar, Edit2, Check, FileText } from "lucide-react";
 import { numberToBanglaWords } from "@/utils/numberToBanglaWords";
 import toast from "react-hot-toast";
 
@@ -12,6 +12,10 @@ export default function ReceiptModal({ receiptData, onClose }) {
   const { user } = useAuth();
   const [teacherProfile, setTeacherProfile] = useState(null);
   const [mounted, setMounted] = useState(false);
+
+  // Print layout options: "landscape2" (A4 Landscape, 2 copies) | "portrait1" (A4 Portrait, 1 copy)
+  const [printLayout, setPrintLayout] = useState("landscape2");
+  const [copy2Type, setCopy2Type] = useState("বিদ্যালয়ের অফিস কপি");
 
   // Extract initial date
   const initialDateStr = receiptData?.payment?.paid_at
@@ -184,223 +188,240 @@ export default function ReceiptModal({ receiptData, onClose }) {
     window.open(waLink, "_blank");
   };
 
-  // Single receipt slip component (Student copy only, no school copy needed)
-  const renderReceiptSlip = () => (
-    <div className="receipt-slip-inner" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "14px 18px", boxSizing: "border-box" }}>
-      {/* Copy Type Tag */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-        <span
-          style={{
-            display: "inline-block",
-            fontSize: "11px",
-            fontWeight: "700",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            background: "rgba(0, 112, 243, 0.12)",
-            color: "#0070f3",
-            border: "1px solid #0070f3"
-          }}
-        >
-          ছাত্র/ছাত্রীর কপি
-        </span>
-        <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>
-          রসিদ নং: <b>{payment.receipt_no}</b>
-        </span>
-      </div>
+  // Reusable receipt slip component
+  const renderReceiptSlip = (copyType = "ছাত্র/ছাত্রীর কপি") => {
+    const isOfficeCopy = copyType.includes("অফিস") || copyType.includes("অ্যাকাউন্টস");
+    const badgeColor = isOfficeCopy ? "#7c3aed" : "#0070f3";
 
-      {/* School Header */}
+    return (
       <div
+        className="receipt-slip-inner"
         style={{
-          textAlign: "center",
-          borderBottom: "1.5px solid var(--border-color)",
-          paddingBottom: "8px",
-          marginBottom: "8px"
-        }}
-      >
-        {teacherProfile?.logo_url && (
-          <img
-            src={teacherProfile.logo_url}
-            alt="School Logo"
-            style={{ width: "38px", height: "38px", objectFit: "contain", marginBottom: "2px" }}
-          />
-        )}
-        <h3 style={{ margin: "0 0 2px 0", color: "var(--brand-primary)", fontSize: "16px", fontWeight: "800", lineHeight: "1.2" }}>
-          {teacherProfile?.school_name || "বিদ্যালয়ের নাম"}
-        </h3>
-        <div style={{ fontSize: "10.5px", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "1px" }}>
-          {teacherProfile?.eiin_number && <span>EIIN: {teacherProfile.eiin_number}</span>}
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
-            {teacherProfile?.phone_number && <span>মোবাইল: {teacherProfile.phone_number}</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Date & Student Info */}
-      <div style={{ fontSize: "12px", marginBottom: "6px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", paddingBottom: "4px", borderBottom: "1px dashed var(--border-color)" }}>
-          <span>তারিখ: <b>{formattedDateBengali}</b></span>
-          {isEditingDate && (
-            <span className="no-print" style={{ display: "flex", gap: "4px" }}>
-              <input
-                type="date"
-                value={receiptDate}
-                onChange={(e) => setReceiptDate(e.target.value)}
-                style={{ fontSize: "11px", padding: "1px 3px" }}
-              />
-              <button onClick={handleUpdateDate} className="btn btn-primary" style={{ padding: "2px 5px", fontSize: "10px" }}>
-                <Check size={11} />
-              </button>
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px", marginBottom: "3px" }}>
-          <div>নাম: <b>{student.full_name}</b></div>
-          <div style={{ textAlign: "right" }}>রোল: <b>{student.roll_no}</b></div>
-        </div>
-
-        {classInfo && (
-          <div style={{ marginBottom: "3px" }}>
-            শ্রেণি: <b>{classInfo.class_name}</b> {classInfo.group_name ? `(${classInfo.group_name})` : ""}{" "}
-            {classInfo.section_name ? `[শাখা: ${classInfo.section_name}]` : ""}
-          </div>
-        )}
-
-        {student.waiver_status && student.waiver_status !== "None" && (
-          <div style={{ color: "var(--brand-primary)", fontSize: "11px", fontWeight: "600" }}>
-            ছাড়: {student.waiver_status === "Full Free" ? "বিনা-বেতন (১০০% ফ্রি)" : student.waiver_status === "Half Free" ? "অর্ধ-বেতন (৫০% ছাড়)" : student.waiver_status}
-          </div>
-        )}
-      </div>
-
-      {/* Fee Breakdown (সব খাতসমূহ) */}
-      <div
-        style={{
-          borderTop: "1px dashed var(--border-color)",
-          borderBottom: "1px dashed var(--border-color)",
-          padding: "6px 0",
-          margin: "4px 0",
-          fontSize: "11.5px"
-        }}
-      >
-        <div style={{ fontWeight: "700", marginBottom: "3px", color: "var(--brand-primary)" }}>
-          ফি এর খাতসমূহ:
-        </div>
-        {resolvedFees && resolvedFees.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {resolvedFees.map((f, i) => (
-              <li key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                <span>• {f.name}</span>
-                <span><b>{f.amount} ৳</b></span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>
-            পূর্বের বকেয়া আদায় / ফি আদায়
-          </div>
-        )}
-      </div>
-
-      {/* Calculations */}
-      <div style={{ fontSize: "11.5px", marginTop: "2px" }}>
-        {resolvedFine > 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand-danger)", marginBottom: "2px" }}>
-            <span>জরিমানা (+):</span> <span><b>{resolvedFine} ৳</b></span>
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "700", marginBottom: "2px" }}>
-          <span>সর্বমোট পাওনা:</span> <span>{calculatedTotalPayable} ৳</span>
-        </div>
-
-        {resolvedDiscount > 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand-warning)", marginBottom: "2px" }}>
-            <span>ডিসকাউন্ট (-):</span> <span><b>{resolvedDiscount} ৳</b></span>
-          </div>
-        )}
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            borderTop: "1px solid var(--brand-primary)",
-            paddingTop: "3px",
-            marginTop: "3px",
-            color: "var(--brand-success)",
-            fontWeight: "800",
-            fontSize: "13px"
-          }}
-        >
-          <span>পরিশোধিত টাকা:</span> <span>{payment.amount_paid} ৳</span>
-        </div>
-
-        <div
-          style={{
-            background: "rgba(39, 174, 96, 0.08)",
-            border: "1px solid rgba(39, 174, 96, 0.25)",
-            borderRadius: "3px",
-            padding: "3px 6px",
-            margin: "4px 0",
-            fontSize: "10.5px",
-            color: "var(--brand-success)",
-            fontWeight: "700"
-          }}
-        >
-          কথায়: {amountInWords}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            borderTop: "1px dashed var(--border-color)",
-            paddingTop: "3px",
-            marginTop: "2px"
-          }}
-        >
-          <span>অবশিষ্ট বকেয়া:</span>
-          <span style={{ color: payment.due_remaining > 0 ? "var(--brand-danger)" : "var(--brand-success)", fontWeight: "bold" }}>
-            {payment.due_remaining} ৳
-          </span>
-        </div>
-      </div>
-
-      {/* Signatures */}
-      <div
-        style={{
+          flex: 1,
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginTop: "auto",
-          paddingTop: "20px",
-          paddingLeft: "4px",
-          paddingRight: "4px"
+          flexDirection: "column",
+          padding: "12px 16px",
+          boxSizing: "border-box",
+          minHeight: "100%",
+          justifyContent: "space-between"
         }}
       >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ borderTop: "1px solid var(--text-secondary)", width: "80px", paddingTop: "2px", fontSize: "11px", color: "var(--text-secondary)" }}>
-            প্রদানকারী
+        <div>
+          {/* Copy Type Tag & Receipt No */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+            <span
+              style={{
+                display: "inline-block",
+                fontSize: "11px",
+                fontWeight: "700",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                background: isOfficeCopy ? "rgba(124, 58, 237, 0.12)" : "rgba(0, 112, 243, 0.12)",
+                color: badgeColor,
+                border: `1px solid ${badgeColor}`
+              }}
+            >
+              {copyType}
+            </span>
+            <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>
+              রসিদ নং: <b>{payment.receipt_no}</b>
+            </span>
+          </div>
+
+          {/* School Header */}
+          <div
+            style={{
+              textAlign: "center",
+              borderBottom: "1.5px solid var(--border-color)",
+              paddingBottom: "6px",
+              marginBottom: "6px"
+            }}
+          >
+            {teacherProfile?.logo_url && (
+              <img
+                src={teacherProfile.logo_url}
+                alt="School Logo"
+                style={{ width: "36px", height: "36px", objectFit: "contain", marginBottom: "2px" }}
+              />
+            )}
+            <h3 style={{ margin: "0 0 2px 0", color: "var(--brand-primary)", fontSize: "15px", fontWeight: "800", lineHeight: "1.2" }}>
+              {teacherProfile?.school_name || "বিদ্যালয়ের নাম"}
+            </h3>
+            <div style={{ fontSize: "10px", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "1px" }}>
+              {teacherProfile?.eiin_number && <span>EIIN: {teacherProfile.eiin_number}</span>}
+              <div style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap" }}>
+                {teacherProfile?.phone_number && <span>মোবাইল: {teacherProfile.phone_number}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Date & Student Info */}
+          <div style={{ fontSize: "11.5px", marginBottom: "5px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px", paddingBottom: "3px", borderBottom: "1px dashed var(--border-color)" }}>
+              <span>তারিখ: <b>{formattedDateBengali}</b></span>
+              {isEditingDate && (
+                <span className="no-print" style={{ display: "flex", gap: "4px" }}>
+                  <input
+                    type="date"
+                    value={receiptDate}
+                    onChange={(e) => setReceiptDate(e.target.value)}
+                    style={{ fontSize: "11px", padding: "1px 3px" }}
+                  />
+                  <button onClick={handleUpdateDate} className="btn btn-primary" style={{ padding: "2px 5px", fontSize: "10px" }}>
+                    <Check size={11} />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px", marginBottom: "2px" }}>
+              <div>নাম: <b>{student.full_name}</b></div>
+              <div style={{ textAlign: "right" }}>রোল: <b>{student.roll_no}</b></div>
+            </div>
+
+            {classInfo && (
+              <div style={{ marginBottom: "2px" }}>
+                শ্রেণি: <b>{classInfo.class_name}</b> {classInfo.group_name ? `(${classInfo.group_name})` : ""}{" "}
+                {classInfo.section_name ? `[শাখা: ${classInfo.section_name}]` : ""}
+              </div>
+            )}
+
+            {student.waiver_status && student.waiver_status !== "None" && (
+              <div style={{ color: "var(--brand-primary)", fontSize: "10.5px", fontWeight: "600" }}>
+                ছাড়: {student.waiver_status === "Full Free" ? "বিনা-বেতন (১০০% ফ্রি)" : student.waiver_status === "Half Free" ? "অর্ধ-বেতন (৫০% ছাড়)" : student.waiver_status}
+              </div>
+            )}
+          </div>
+
+          {/* Fee Breakdown */}
+          <div
+            style={{
+              borderTop: "1px dashed var(--border-color)",
+              borderBottom: "1px dashed var(--border-color)",
+              padding: "5px 0",
+              margin: "4px 0",
+              fontSize: "11px"
+            }}
+          >
+            <div style={{ fontWeight: "700", marginBottom: "2px", color: "var(--brand-primary)" }}>
+              ফি এর খাতসমূহ:
+            </div>
+            {resolvedFees && resolvedFees.length > 0 ? (
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {resolvedFees.map((f, i) => (
+                  <li key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5px" }}>
+                    <span>• {f.name}</span>
+                    <span><b>{f.amount} ৳</b></span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>
+                পূর্বের বকেয়া আদায় / ফি আদায়
+              </div>
+            )}
+          </div>
+
+          {/* Calculations */}
+          <div style={{ fontSize: "11px", marginTop: "2px" }}>
+            {resolvedFine > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand-danger)", marginBottom: "1.5px" }}>
+                <span>জরিমানা (+):</span> <span><b>{resolvedFine} ৳</b></span>
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "700", marginBottom: "1.5px" }}>
+              <span>সর্বমোট পাওনা:</span> <span>{calculatedTotalPayable} ৳</span>
+            </div>
+
+            {resolvedDiscount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand-warning)", marginBottom: "1.5px" }}>
+                <span>ডিসকাউন্ট (-):</span> <span><b>{resolvedDiscount} ৳</b></span>
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                borderTop: "1px solid var(--brand-primary)",
+                paddingTop: "2px",
+                marginTop: "2px",
+                color: "var(--brand-success)",
+                fontWeight: "800",
+                fontSize: "12.5px"
+              }}
+            >
+              <span>পরিশোধিত টাকা:</span> <span>{payment.amount_paid} ৳</span>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(39, 174, 96, 0.08)",
+                border: "1px solid rgba(39, 174, 96, 0.25)",
+                borderRadius: "3px",
+                padding: "2.5px 5px",
+                margin: "3px 0",
+                fontSize: "10px",
+                color: "var(--brand-success)",
+                fontWeight: "700"
+              }}
+            >
+              কথায়: {amountInWords}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                borderTop: "1px dashed var(--border-color)",
+                paddingTop: "2px",
+                marginTop: "2px"
+              }}
+            >
+              <span>অবশিষ্ট বকেয়া:</span>
+              <span style={{ color: payment.due_remaining > 0 ? "var(--brand-danger)" : "var(--brand-success)", fontWeight: "bold" }}>
+                {payment.due_remaining} ৳
+              </span>
+            </div>
           </div>
         </div>
 
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {teacherProfile?.signature_url ? (
-            <img
-              src={teacherProfile.signature_url}
-              alt="Signature"
-              style={{ height: "24px", objectFit: "contain", marginBottom: "1px" }}
-            />
-          ) : (
-            <div style={{ height: "24px" }}></div>
-          )}
-          <div style={{ borderTop: "1px solid var(--text-secondary)", width: "80px", paddingTop: "2px", fontSize: "11px", color: "var(--text-secondary)" }}>
-            গ্রহণকারী
+        {/* Signatures */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            paddingTop: "16px",
+            paddingLeft: "4px",
+            paddingRight: "4px"
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div style={{ borderTop: "1px solid var(--text-secondary)", width: "75px", paddingTop: "2px", fontSize: "10.5px", color: "var(--text-secondary)" }}>
+              প্রদানকারী
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {teacherProfile?.signature_url ? (
+              <img
+                src={teacherProfile.signature_url}
+                alt="Signature"
+                style={{ height: "22px", objectFit: "contain", marginBottom: "1px" }}
+              />
+            ) : (
+              <div style={{ height: "22px" }}></div>
+            )}
+            <div style={{ borderTop: "1px solid var(--text-secondary)", width: "75px", paddingTop: "2px", fontSize: "10.5px", color: "var(--text-secondary)" }}>
+              গ্রহণকারী
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return createPortal(
     <div className="receipt-modal-portal">
@@ -410,14 +431,14 @@ export default function ReceiptModal({ receiptData, onClose }) {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="card-glass receipt-modal-container">
+        <div className={`card-glass receipt-modal-container ${printLayout === "landscape2" ? "modal-wide" : ""}`}>
           
           {/* Modal Header */}
           <div className="modal-header-bar no-print">
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <h3 style={{ margin: 0, fontSize: "17px" }}>ফি আদায়ের রসিদ</h3>
               <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "12px" }}>
-                ছাত্র/ছাত্রীর কপি (১ পেজ)
+                {printLayout === "landscape2" ? "A4 ল্যান্ডস্কেপ (এক পেজে ২ কপি)" : "সিঙ্গেল কপি (১ পেজ)"}
               </span>
             </div>
             <button onClick={onClose} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", alignItems: "center" }}>
@@ -425,11 +446,90 @@ export default function ReceiptModal({ receiptData, onClose }) {
             </button>
           </div>
 
+          {/* Layout & Print Cost Saver Control Bar */}
+          <div className="layout-control-bar no-print">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-primary)" }}>প্রিন্ট সাইজ:</span>
+                <div style={{ display: "inline-flex", background: "var(--bg-color)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPrintLayout("landscape2")}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: printLayout === "landscape2" ? "700" : "500",
+                      background: printLayout === "landscape2" ? "var(--brand-primary)" : "transparent",
+                      color: printLayout === "landscape2" ? "white" : "var(--text-secondary)",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <span>📄 A4 ল্যান্ডস্কেপ (এক পেজে ২ কপি)</span>
+                    <span style={{ fontSize: "10px", background: printLayout === "landscape2" ? "rgba(255,255,255,0.3)" : "#22c55e", color: "white", padding: "1px 6px", borderRadius: "10px", fontWeight: "bold" }}>
+                      খরচ সাশ্রয়ী
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintLayout("portrait1")}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: printLayout === "portrait1" ? "700" : "500",
+                      background: printLayout === "portrait1" ? "var(--brand-primary)" : "transparent",
+                      color: printLayout === "portrait1" ? "white" : "var(--text-secondary)",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <span>📑 একক কপি (পোর্ট্রেট)</span>
+                  </button>
+                </div>
+              </div>
+
+              {printLayout === "landscape2" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+                  <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>২য় কপির শিরোনাম:</span>
+                  <select
+                    value={copy2Type}
+                    onChange={(e) => setCopy2Type(e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "11.5px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-color)",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      fontWeight: "600"
+                    }}
+                  >
+                    <option value="বিদ্যালয়ের অফিস কপি">বিদ্যালয়ের অফিস কপি</option>
+                    <option value="ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)">ছাত্র/ছাত্রীর কপি (ডুপ্লিকেট)</option>
+                    <option value="অ্যাকাউন্টস কপি">অ্যাকাউন্টস কপি</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Date Edit bar in Modal Preview */}
           <div className="date-edit-bar no-print">
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Calendar size={14} style={{ color: "var(--brand-primary)" }} />
-              <span>তারিখ: <b>{formattedDateBengali}</b></span>
+              <span>রসিদের তারিখ: <b>{formattedDateBengali}</b></span>
               {!isEditingDate ? (
                 <button
                   onClick={() => setIsEditingDate(true)}
@@ -451,13 +551,43 @@ export default function ReceiptModal({ receiptData, onClose }) {
                 </span>
               )}
             </div>
+
+            {printLayout === "landscape2" && (
+              <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                💡 প্রিন্ট করলে মাঝখান দিয়ে কেটে আলাদা করতে পারবেন
+              </span>
+            )}
           </div>
 
-          {/* Printable Area: Single Receipt (Student Copy Only) */}
-          <div id="printable-receipt" className="printable-receipt-wrapper">
-            <div className="receipt-col student-copy">
-              {renderReceiptSlip()}
-            </div>
+          {/* Printable Area: Dual Layout or Single Layout */}
+          <div id="printable-receipt" className={`printable-receipt-wrapper ${printLayout}`}>
+            {printLayout === "landscape2" ? (
+              <div className="receipt-dual-layout">
+                {/* 1st Half: Student Copy */}
+                <div className="receipt-col student-copy">
+                  {renderReceiptSlip("ছাত্র/ছাত্রীর কপি")}
+                </div>
+
+                {/* Middle Cutting Line */}
+                <div className="cutting-divider" aria-hidden="true">
+                  <div className="cutting-line-indicator">
+                    <span className="cutting-scissor-icon">✂</span>
+                    <span className="cutting-label-text">কেটে আলাদা করুন</span>
+                  </div>
+                </div>
+
+                {/* 2nd Half: Office Copy or Duplicate */}
+                <div className="receipt-col office-copy">
+                  {renderReceiptSlip(copy2Type)}
+                </div>
+              </div>
+            ) : (
+              <div className="receipt-single-layout">
+                <div className="receipt-col single-copy">
+                  {renderReceiptSlip("ছাত্র/ছাত্রীর কপি")}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons (Hidden on Print) */}
@@ -528,10 +658,11 @@ export default function ReceiptModal({ receiptData, onClose }) {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "8px",
-                  padding: "10px"
+                  padding: "10px",
+                  fontSize: "14px"
                 }}
               >
-                <Printer size={18} /> রসিদ প্রিন্ট করুন (Print Receipt)
+                <Printer size={18} /> {printLayout === "landscape2" ? "A4 ল্যান্ডস্কেপ রসিদ প্রিন্ট (২ কপি)" : "সিঙ্গেল রসিদ প্রিন্ট করুন"}
               </button>
 
               <button
@@ -573,7 +704,7 @@ export default function ReceiptModal({ receiptData, onClose }) {
         }
         .receipt-modal-container {
           width: 100%;
-          max-width: 500px;
+          max-width: 520px;
           padding: 0;
           max-height: 94vh;
           overflow-y: auto;
@@ -582,6 +713,10 @@ export default function ReceiptModal({ receiptData, onClose }) {
           background: var(--card-bg);
           border-radius: var(--radius-lg);
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          transition: max-width 0.25s ease;
+        }
+        .receipt-modal-container.modal-wide {
+          max-width: 960px;
         }
         .modal-header-bar {
           background: var(--brand-primary);
@@ -592,9 +727,14 @@ export default function ReceiptModal({ receiptData, onClose }) {
           justify-content: space-between;
           align-items: center;
         }
-        .date-edit-bar {
+        .layout-control-bar {
           padding: 8px 18px;
-          background: rgba(0, 112, 243, 0.05);
+          background: var(--card-bg);
+          border-bottom: 1px solid var(--border-color);
+        }
+        .date-edit-bar {
+          padding: 6px 18px;
+          background: rgba(0, 112, 243, 0.04);
           border-bottom: 1px solid var(--border-color);
           display: flex;
           justify-content: space-between;
@@ -617,30 +757,121 @@ export default function ReceiptModal({ receiptData, onClose }) {
           box-sizing: border-box;
           background: var(--bg-color);
         }
-        .receipt-col {
+        .receipt-dual-layout {
+          display: flex;
+          flex-direction: row;
+          align-items: stretch;
+          justify-content: space-between;
+          gap: 0;
+          width: 100%;
+        }
+        .receipt-dual-layout .receipt-col {
+          flex: 1;
           display: flex;
           flex-direction: column;
           background: var(--card-bg);
           border-radius: var(--radius-md);
           border: 1px solid var(--border-color);
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
           overflow: hidden;
+        }
+        .cutting-divider {
+          width: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        .cutting-divider::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 50%;
+          border-left: 1.5px dashed var(--border-color);
+        }
+        .cutting-line-indicator {
+          background: var(--card-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 20px;
+          padding: 6px 2px;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+        .cutting-scissor-icon {
+          font-size: 13px;
+          color: var(--text-secondary);
+          transform: rotate(90deg);
+        }
+        .cutting-label-text {
+          font-size: 9px;
+          writing-mode: vertical-rl;
+          color: var(--text-secondary);
+          letter-spacing: 1px;
+        }
+        .receipt-single-layout {
+          width: 100%;
+          max-width: 480px;
+          margin: 0 auto;
+        }
+        .receipt-single-layout .receipt-col {
+          display: flex;
+          flex-direction: column;
+          background: var(--card-bg);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-color);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+          .receipt-dual-layout {
+            flex-direction: column !important;
+            gap: 14px !important;
+          }
+          .cutting-divider {
+            width: 100% !important;
+            height: 22px !important;
+            flex-direction: row !important;
+          }
+          .cutting-divider::before {
+            top: 50% !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: auto !important;
+            border-left: none !important;
+            border-top: 1.5px dashed var(--border-color) !important;
+          }
+          .cutting-line-indicator {
+            flex-direction: row !important;
+            padding: 2px 8px !important;
+          }
+          .cutting-scissor-icon {
+            transform: none !important;
+          }
+          .cutting-label-text {
+            writing-mode: horizontal-tb !important;
+          }
         }
 
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 10mm 15mm;
+            size: ${printLayout === "landscape2" ? "A4 landscape" : "A4 portrait"};
+            margin: ${printLayout === "landscape2" ? "5mm 6mm" : "10mm 15mm"};
           }
 
           :global(html), :global(body) {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
+            width: 100% !important;
             height: auto !important;
             min-height: 0 !important;
-            max-height: 100% !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
 
           :global(body.receipt-print-mode > *:not(.receipt-modal-portal)) {
@@ -689,7 +920,6 @@ export default function ReceiptModal({ receiptData, onClose }) {
           .printable-receipt-wrapper {
             display: block !important;
             width: 100% !important;
-            max-width: 145mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
             background: #ffffff !important;
@@ -700,24 +930,89 @@ export default function ReceiptModal({ receiptData, onClose }) {
             break-after: avoid !important;
           }
 
-          .receipt-col {
+          /* Dual Layout on Landscape Print (1 A4 sheet = 2 halves) */
+          .receipt-dual-layout {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            max-width: 285mm !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          .receipt-dual-layout .receipt-col {
+            width: 137mm !important;
+            max-width: 137mm !important;
+            flex: 1 1 137mm !important;
+            border: 1.2px solid #000000 !important;
+            border-radius: 4px !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          .cutting-divider {
             display: flex !important;
             flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 9mm !important;
+            position: relative !important;
+          }
+
+          .cutting-divider::before {
+            content: "" !important;
+            position: absolute !important;
+            top: 2mm !important;
+            bottom: 2mm !important;
+            left: 50% !important;
+            border-left: 1px dashed #64748b !important;
+          }
+
+          .cutting-line-indicator {
+            background: #ffffff !important;
+            border: none !important;
+            padding: 0 !important;
+          }
+
+          .cutting-scissor-icon {
+            font-size: 13px !important;
+            color: #475569 !important;
+            transform: rotate(90deg) !important;
+          }
+
+          .cutting-label-text {
+            display: none !important;
+          }
+
+          /* Single Layout on Portrait Print */
+          .receipt-single-layout {
+            display: block !important;
             width: 100% !important;
-            border: 1.5px solid #222 !important;
+            max-width: 145mm !important;
+            margin: 0 auto !important;
+          }
+
+          .receipt-single-layout .receipt-col {
+            width: 100% !important;
+            border: 1.5px solid #000000 !important;
             border-radius: 6px !important;
             box-shadow: none !important;
             background: #ffffff !important;
             color: #000000 !important;
-            overflow: hidden !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
           }
 
           :global(.receipt-slip-inner) {
             background: #ffffff !important;
             color: #000000 !important;
-            padding: 14px 18px !important;
+            padding: 10px 14px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
