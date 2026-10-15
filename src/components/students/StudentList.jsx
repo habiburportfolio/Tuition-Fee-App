@@ -242,9 +242,10 @@ export default function StudentList({ classId, classIds, classInfo, selectedDepa
 
   const getGroupBadge = (group) => {
     if (!group) return <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>;
-    const isSci = group.toLowerCase() === "science" || group === "বিজ্ঞান";
-    const isCom = group.toLowerCase() === "commerce" || group === "ব্যবসায় শিক্ষা" || group === "ব্যবসায় শিক্ষা";
-    const isArt = group.toLowerCase() === "arts" || group === "মানবিক";
+    const gStr = String(group).toLowerCase().trim();
+    const isSci = gStr === "science" || gStr === "বিজ্ঞান";
+    const isCom = gStr === "commerce" || gStr === "ব্যবসায় শিক্ষা" || gStr === "ব্যবসায় শিক্ষা";
+    const isArt = gStr === "arts" || gStr === "মানবিক";
 
     const label = isSci ? "Science (বিজ্ঞান)" : isCom ? "Commerce (ব্যবসায় শিক্ষা)" : isArt ? "Arts (মানবিক)" : group;
     const color = isSci ? "#0070f3" : isCom ? "#27ae60" : isArt ? "#8e44ad" : "var(--brand-primary)";

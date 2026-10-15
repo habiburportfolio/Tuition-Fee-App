@@ -177,7 +177,7 @@ export default function CollectionForm({ classId, classIds, classInfo, selectedD
   const selectedOtherFees = selectedFees.map(id => allAvailableOtherFees.find(f => f.id === id)).filter(Boolean);
   
   const selectedOtherFeesTotal = selectedOtherFees.reduce((sum, f) => {
-    const isTuitionFee = f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন" || f.fee_type.toLowerCase().includes("tuition");
+    const isTuitionFee = f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন" || (f.fee_type && String(f.fee_type).toLowerCase().includes("tuition"));
     if (isTuitionFee && waiverFreeApplied) {
       return sum; // 100% free for scholarship / stipend
     }
