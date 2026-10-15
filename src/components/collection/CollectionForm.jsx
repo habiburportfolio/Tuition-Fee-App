@@ -98,7 +98,10 @@ export default function CollectionForm({ classId, classIds, classInfo, selectedD
 
   useEffect(() => {
     if (targetClassIds.length > 0) {
-      supabase.from("fees_setup").select("*").in("class_id", targetClassIds).eq("is_active", true)
+      supabase.from("fees_setup")
+        .select("*, academic_classes(id, class_name, section_name, group_name)")
+        .in("class_id", targetClassIds)
+        .eq("is_active", true)
         .then(({ data }) => setFees(data || []));
         
       fetchRecentPayments(collectionScope);
@@ -162,13 +165,28 @@ export default function CollectionForm({ classId, classIds, classInfo, selectedD
     }
   };
 
+  // Applicable fees based on currently selected student or selected department filter
+  const applicableFees = useMemo(() => {
+    if (!fees || fees.length === 0) return [];
+    if (student && student.class_id) {
+      return fees.filter(f => f.class_id === student.class_id);
+    }
+    if (selectedDepartment && selectedDepartment !== "all") {
+      const activeVariant = classInfo?.allVariants?.find(v => v.group_name === selectedDepartment);
+      if (activeVariant) {
+        return fees.filter(f => f.class_id === activeVariant.id);
+      }
+    }
+    return fees;
+  }, [fees, student, selectedDepartment, classInfo]);
+
   // Find standard monthly fee if configured
-  const standardMonthlyFee = fees.find(f => f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন");
+  const standardMonthlyFee = applicableFees.find(f => f.fee_type === "Monthly" || f.fee_type === "মাসিক বেতন");
   const monthlyRate = standardMonthlyFee ? Number(standardMonthlyFee.amount) : 0;
 
   // Combine predefined fees from fees_setup + any custom on-the-spot fees
   const allAvailableOtherFees = [
-    ...fees.filter(f => f.fee_type !== "Monthly" && f.fee_type !== "মাসিক বেতন"),
+    ...applicableFees.filter(f => f.fee_type !== "Monthly" && f.fee_type !== "মাসিক বেতন"),
     ...customOnTheSpotFees
   ];
 
@@ -238,18 +256,19 @@ export default function CollectionForm({ classId, classIds, classInfo, selectedD
 
     setAddingFee(true);
     try {
-      if (saveFeePermanently && classId && user) {
+      const targetInsertClassId = student?.class_id || classId;
+      if (saveFeePermanently && targetInsertClassId && user) {
         // Save to Supabase fees_setup table for this class
         const { data: createdFee, error } = await supabase
           .from("fees_setup")
           .insert([{
             teacher_id: user.id,
-            class_id: classId,
+            class_id: targetInsertClassId,
             fee_type: newFeeName.trim(),
             amount: amt,
             is_active: true
           }])
-          .select()
+          .select("*, academic_classes(id, class_name, section_name, group_name)")
           .single();
 
         if (error) throw error;
@@ -793,8 +812,20 @@ export default function CollectionForm({ classId, classIds, classInfo, selectedD
                             onChange={() => toggleFee(fee.id)}
                             style={{ accentColor: "var(--brand-primary)" }}
                           />
-                          <span style={{ fontSize: "13.5px", fontWeight: isChecked ? "700" : "500" }}>
-                            {fee.fee_type} - <b>{fee.amount} ৳</b>
+                          <span style={{ fontSize: "13.5px", fontWeight: isChecked ? "700" : "500", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <span>{fee.fee_type} - <b>{fee.amount} ৳</b></span>
+                            {(!student || selectedDepartment === "all") && fee.academic_classes?.group_name && (
+                              <span style={{
+                                fontSize: "11px",
+                                padding: "2px 7px",
+                                borderRadius: "var(--radius-full)",
+                                backgroundColor: fee.academic_classes.group_name === "Science" ? "rgba(0, 112, 243, 0.12)" : fee.academic_classes.group_name === "Commerce" ? "rgba(39, 174, 96, 0.12)" : "rgba(142, 68, 173, 0.12)",
+                                color: fee.academic_classes.group_name === "Science" ? "#0070f3" : fee.academic_classes.group_name === "Commerce" ? "#27ae60" : "#8e44ad",
+                                fontWeight: "700"
+                              }}>
+                                {fee.academic_classes.group_name === "Science" ? "বিজ্ঞান" : fee.academic_classes.group_name === "Commerce" ? "ব্যবসায় শিক্ষা" : fee.academic_classes.group_name === "Arts" ? "মানবিক" : fee.academic_classes.group_name}
+                              </span>
+                            )}
                           </span>
                         </label>
                         {fee.isCustom && (
