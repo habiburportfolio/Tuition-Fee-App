@@ -11,11 +11,11 @@ import DeleteGroupModal from "./DeleteGroupModal";
 import PromoteStudentsModal from "./PromoteStudentsModal";
 import SchoolPrintHeader from "@/components/common/SchoolPrintHeader";
 import toast from "react-hot-toast";
-import { Users, FileSpreadsheet, Plus, ArrowRight, Edit, Trash2, AlertTriangle, Printer, Award } from "lucide-react";
+import { Users, FileSpreadsheet, Plus, ArrowRight, Edit, Trash2, AlertTriangle, Printer, Award, Lock, Unlock, Check } from "lucide-react";
 
 export default function StudentList({ classId, classInfo }) {
   const { user, userRole } = useAuth();
-  const { guardAction } = useLock();
+  const { guardAction, isLocked, openUnlockModal } = useLock();
 
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,6 +144,37 @@ export default function StudentList({ classId, classInfo }) {
       setStudents(prev => prev.map(s => s.id === studentId ? { ...s, waiver_status: newWaiverStatus } : s));
     } catch (error) {
       toast.error(`❌ আপডেট এরর: ${error.message}`);
+    }
+  };
+
+  const [savingDueId, setSavingDueId] = useState(null);
+
+  const handleInlineUpdateDue = async (studentId, newDue, originalValue) => {
+    if (newDue === Number(originalValue || 0)) {
+      return false;
+    }
+
+    setSavingDueId(studentId);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({ opening_due: newDue })
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, opening_due: newDue } : s));
+      const targetRoll = students.find(s => s.id === studentId)?.roll_no;
+      toast.success(`✅ রোল ${targetRoll ?? ""}: বকেয়া ${newDue} ৳ সংরক্ষিত হয়েছে!`, {
+        id: `due-update-${studentId}`,
+        duration: 2000
+      });
+      return true;
+    } catch (err) {
+      toast.error(`❌ বকেয়া সেভ করতে সমস্যা: ${err.message}`);
+      return false;
+    } finally {
+      setSavingDueId(null);
     }
   };
 
@@ -622,7 +653,53 @@ export default function StudentList({ classId, classInfo }) {
                   <th style={{ padding: "12px", color: "var(--text-secondary)" }}>বিভাগ (Group)</th>
                   <th style={{ padding: "12px", color: "var(--text-secondary)" }}>বৃত্তি / সুবিধা</th>
                   <th style={{ padding: "12px", color: "var(--text-secondary)" }}>অভিভাবক ও ফোন</th>
-                  <th style={{ padding: "12px", color: "var(--text-secondary)" }}>বকেয়া (৳)</th>
+                  <th style={{ padding: "12px", color: "var(--text-secondary)", minWidth: "155px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>বকেয়া (৳)</span>
+                      <span className="no-print">
+                        {isLocked ? (
+                          <button
+                            type="button"
+                            onClick={() => openUnlockModal()}
+                            title="সিস্টেম লক করা আছে। সরাসরি বকেয়া এন্ট্রি করতে ক্লিক করে আনলক করুন।"
+                            style={{
+                              background: "rgba(239, 68, 68, 0.1)",
+                              border: "1px solid var(--brand-danger)",
+                              borderRadius: "var(--radius-full)",
+                              color: "var(--brand-danger)",
+                              fontSize: "11px",
+                              padding: "2px 7px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              cursor: "pointer",
+                              fontWeight: "600"
+                            }}
+                          >
+                            <Lock size={11} /> লক
+                          </button>
+                        ) : (
+                          <span
+                            title="সিস্টেম আনলকড। সরাসরি বকেয়া টাইপ করে এন্ট্রি করতে পারবেন।"
+                            style={{
+                              background: "rgba(16, 185, 129, 0.12)",
+                              border: "1px solid var(--brand-success)",
+                              borderRadius: "var(--radius-full)",
+                              color: "var(--brand-success)",
+                              fontSize: "11px",
+                              padding: "2px 7px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              fontWeight: "600"
+                            }}
+                          >
+                            <Unlock size={11} /> আনলকড
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </th>
                   <th className="no-print" style={{ padding: "12px", color: "var(--text-secondary)", textAlign: "right" }}>অ্যাকশন</th>
                 </tr>
               </thead>
@@ -705,8 +782,42 @@ export default function StudentList({ classId, classInfo }) {
                         {student.parent_phone && <div style={{ fontSize: "12px" }}>📱 {student.parent_phone}</div>}
                         {!student.parent_name && !student.parent_phone && <span>-</span>}
                       </td>
-                      <td style={{ padding: "12px", fontWeight: "700", color: student.opening_due > 0 ? "var(--brand-danger)" : "var(--brand-success)" }}>
-                        {student.opening_due} ৳
+                      <td style={{ padding: "10px 12px" }}>
+                        <div className="print-only" style={{ fontWeight: "700", color: student.opening_due > 0 ? "#dc2626" : "#16a34a" }}>
+                          {student.opening_due || 0} ৳
+                        </div>
+                        <div className="no-print">
+                          {isLocked ? (
+                            <div
+                              onClick={() => openUnlockModal()}
+                              title="সিস্টেম লক করা। বকেয়া এন্ট্রি/পরিবর্তন করতে ক্লিক করে পিন দিয়ে আনলক করুন।"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                cursor: "pointer",
+                                padding: "4px 8px",
+                                borderRadius: "var(--radius-sm)",
+                                background: Number(student.opening_due) > 0 ? "rgba(239, 68, 68, 0.08)" : "transparent",
+                                color: Number(student.opening_due) > 0 ? "var(--brand-danger)" : "var(--brand-success)",
+                                fontWeight: "700",
+                                border: "1px dashed transparent",
+                                transition: "border-color 0.15s ease"
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-color)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}
+                            >
+                              <span>{student.opening_due || 0} ৳</span>
+                              <Lock size={12} style={{ color: "var(--text-secondary)", opacity: 0.6 }} />
+                            </div>
+                          ) : (
+                            <InlineDueInput
+                              student={student}
+                              onSave={handleInlineUpdateDue}
+                              isSaving={savingDueId === student.id}
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className="no-print" style={{ padding: "12px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
@@ -825,6 +936,70 @@ export default function StudentList({ classId, classInfo }) {
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+function InlineDueInput({ student, onSave, isSaving }) {
+  const [val, setVal] = useState(student.opening_due ?? 0);
+  const [justSaved, setJustSaved] = useState(false);
+
+  useEffect(() => {
+    setVal(student.opening_due ?? 0);
+  }, [student.opening_due]);
+
+  const handleSave = async () => {
+    const num = Number(val);
+    if (isNaN(num) || num < 0) {
+      toast.error("সঠিক টাকার পরিমাণ দিন!");
+      setVal(student.opening_due ?? 0);
+      return;
+    }
+    if (num === Number(student.opening_due ?? 0)) {
+      return;
+    }
+    const success = await onSave(student.id, num, student.opening_due);
+    if (success) {
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  };
+
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+      <input
+        type="number"
+        min="0"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        disabled={isSaving}
+        title="বকেয়ার পরিমাণ লিখুন এবং বাইরে ক্লিক করুন বা Enter চাপুন"
+        style={{
+          width: "88px",
+          padding: "5px 8px",
+          fontSize: "13px",
+          fontWeight: "700",
+          textAlign: "right",
+          borderRadius: "var(--radius-sm)",
+          border: justSaved ? "1.5px solid var(--brand-success)" : "1px solid var(--border-color)",
+          background: Number(val) > 0 ? "rgba(239, 68, 68, 0.08)" : "var(--bg-color)",
+          color: Number(val) > 0 ? "var(--brand-danger)" : "var(--brand-success)",
+          outline: "none",
+          transition: "all 0.15s ease"
+        }}
+      />
+      <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-secondary)" }}>৳</span>
+      {justSaved && (
+        <span style={{ fontSize: "12px", color: "var(--brand-success)", fontWeight: "bold" }}>✓</span>
+      )}
     </div>
   );
 }
