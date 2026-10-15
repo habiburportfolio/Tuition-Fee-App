@@ -7,6 +7,7 @@ import { X, Edit3 } from "lucide-react";
 
 export default function EditStudentModal({ student, classInfo, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
+  const [targetClassId, setTargetClassId] = useState(student?.class_id || "");
   const [formData, setFormData] = useState({
     roll_no: student?.roll_no?.toString() || "",
     full_name: student?.full_name || "",
@@ -36,6 +37,7 @@ export default function EditStudentModal({ student, classInfo, onClose, onSucces
       const { error } = await supabase
         .from("students")
         .update({
+          class_id: targetClassId || student.class_id,
           roll_no: parseInt(formData.roll_no, 10),
           full_name: formData.full_name.trim(),
           parent_name: formData.parent_name ? formData.parent_name.trim() : null,
@@ -99,6 +101,25 @@ export default function EditStudentModal({ student, classInfo, onClose, onSucces
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          {classInfo?.allVariants && classInfo.allVariants.length > 1 && (
+            <div>
+              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
+                বিভাগ (Department / Group) *
+              </label>
+              <select
+                value={targetClassId}
+                onChange={(e) => setTargetClassId(e.target.value)}
+                style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1.5px solid var(--brand-primary)", fontWeight: "600", fontSize: "13.5px", backgroundColor: "var(--bg-color)", color: "var(--text-primary)" }}
+              >
+                {classInfo.allVariants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.group_name === "Science" ? "বিজ্ঞান (Science)" : v.group_name === "Commerce" ? "ব্যবসায় শিক্ষা (Commerce)" : v.group_name === "Arts" ? "মানবিক (Arts)" : (v.group_name || "সাধারণ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: "15px" }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>রোল নম্বর *</label>

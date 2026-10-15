@@ -13,7 +13,7 @@ import SchoolPrintHeader from "@/components/common/SchoolPrintHeader";
 import toast from "react-hot-toast";
 import { Users, FileSpreadsheet, Plus, ArrowRight, Edit, Trash2, AlertTriangle, Printer, Award, Lock, Unlock, Check } from "lucide-react";
 
-export default function StudentList({ classId, classInfo }) {
+export default function StudentList({ classId, classIds, classInfo, selectedDepartment, onSelectDepartment }) {
   const { user, userRole } = useAuth();
   const { guardAction, isLocked, openUnlockModal } = useLock();
 
@@ -28,6 +28,11 @@ export default function StudentList({ classId, classInfo }) {
   const [currentClass, setCurrentClass] = useState(classInfo || null);
   const [filterWaiver, setFilterWaiver] = useState("all");
 
+  const targetClassIds = useMemo(() => {
+    if (classIds && classIds.length > 0) return classIds;
+    return classId ? [classId] : [];
+  }, [classId, classIds]);
+
   useEffect(() => {
     if (classInfo) {
       setCurrentClass(classInfo);
@@ -38,13 +43,13 @@ export default function StudentList({ classId, classInfo }) {
   }, [classId, classInfo]);
 
   const fetchStudents = useCallback(async () => {
-    if (!classId) return;
+    if (targetClassIds.length === 0) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("*")
-        .eq("class_id", classId)
+        .select("*, academic_classes(id, class_name, section_name, group_name)")
+        .in("class_id", targetClassIds)
         .order("roll_no", { ascending: true });
 
       if (error) throw error;
@@ -55,13 +60,13 @@ export default function StudentList({ classId, classInfo }) {
     } finally {
       setLoading(false);
     }
-  }, [classId]);
+  }, [targetClassIds]);
 
   useEffect(() => {
-    if (user && classId) {
+    if (user && targetClassIds.length > 0) {
       fetchStudents();
     }
-  }, [user, classId, fetchStudents]);
+  }, [user, targetClassIds, fetchStudents]);
 
   const handleToggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
@@ -189,7 +194,10 @@ export default function StudentList({ classId, classInfo }) {
 
       setLoading(true);
       try {
-        const { error } = await supabase.from("students").delete().eq("class_id", classId);
+        const deleteQuery = supabase.from("students").delete();
+        const { error } = (selectedDepartment && selectedDepartment !== "all")
+          ? await deleteQuery.eq("class_id", selectedDepartment)
+          : await deleteQuery.in("class_id", targetClassIds);
         if (error) {
           if (error.code === '23503') throw new Error("কিছু শিক্ষার্থীর পেমেন্ট রেকর্ড সংরক্ষিত থাকায় সম্পূর্ণ মোছা যায়নি।");
           throw error;
@@ -234,9 +242,9 @@ export default function StudentList({ classId, classInfo }) {
 
   const getGroupBadge = (group) => {
     if (!group) return <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>;
-    const isSci = group.toLowerCase() === "science";
-    const isCom = group.toLowerCase() === "commerce";
-    const isArt = group.toLowerCase() === "arts";
+    const isSci = group.toLowerCase() === "science" || group === "বিজ্ঞান";
+    const isCom = group.toLowerCase() === "commerce" || group === "ব্যবসায় শিক্ষা" || group === "ব্যবসায় শিক্ষা";
+    const isArt = group.toLowerCase() === "arts" || group === "মানবিক";
 
     const label = isSci ? "Science (বিজ্ঞান)" : isCom ? "Commerce (ব্যবসায় শিক্ষা)" : isArt ? "Arts (মানবিক)" : group;
     const color = isSci ? "#0070f3" : isCom ? "#27ae60" : isArt ? "#8e44ad" : "var(--brand-primary)";
@@ -295,6 +303,10 @@ export default function StudentList({ classId, classInfo }) {
   };
 
   const filteredStudents = students.filter(s => {
+    if (selectedDepartment && selectedDepartment !== "all") {
+      const g = s.academic_classes?.group_name || currentClass?.group_name;
+      if (g !== selectedDepartment) return false;
+    }
     if (filterWaiver === "all") return true;
     if (filterWaiver === "upobritti") return s.waiver_status && s.waiver_status.includes("উপবৃত্তি");
     if (filterWaiver === "britti") return s.waiver_status && s.waiver_status.includes("বৃত্তি") && !s.waiver_status.includes("উপবৃত্তি");
@@ -727,7 +739,7 @@ export default function StudentList({ classId, classInfo }) {
                       <td style={{ padding: "12px", fontWeight: "bold" }}>{student.roll_no}</td>
                       <td style={{ padding: "12px", fontWeight: "600" }}>{student.full_name}</td>
                       <td style={{ padding: "12px" }}>
-                        {getGroupBadge(currentClass?.group_name)}
+                        {getGroupBadge(student.academic_classes?.group_name || currentClass?.group_name)}
                       </td>
                       <td style={{ padding: "12px" }}>
                         <div className="print-only">

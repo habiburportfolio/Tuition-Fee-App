@@ -14,14 +14,20 @@ const BANGLA_MONTHS = [
   "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
 ];
 
-export default function CollectionForm({ classId, classInfo }) {
+export default function CollectionForm({ classId, classIds, classInfo, selectedDepartment, onSelectDepartment }) {
   const { user, userRole } = useAuth();
   const { guardAction } = useLock();
   
   const [rollNo, setRollNo] = useState("");
   const [student, setStudent] = useState(null);
+  const [multipleMatches, setMultipleMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentClass, setCurrentClass] = useState(classInfo || null);
+
+  const targetClassIds = useMemo(() => {
+    if (classIds && classIds.length > 0) return classIds;
+    return classId ? [classId] : [];
+  }, [classId, classIds]);
   
   // Date state
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
@@ -64,14 +70,14 @@ export default function CollectionForm({ classId, classInfo }) {
   }, [classId, classInfo]);
 
   const fetchRecentPayments = async (scope = collectionScope) => {
-    if (!classId && scope === "current") return;
+    if (targetClassIds.length === 0 && scope === "current") return;
 
     let query;
-    if (scope === "current" && classId) {
+    if (scope === "current" && targetClassIds.length > 0) {
       query = supabase
         .from("payments")
         .select("*, students!inner(full_name, roll_no, class_id, waiver_status, parent_phone, academic_classes(id, class_name, section_name, group_name))")
-        .eq("students.class_id", classId)
+        .in("students.class_id", targetClassIds)
         .eq("is_voided", false)
         .is("deposit_id", null)
         .order("paid_at", { ascending: false })
@@ -91,55 +97,63 @@ export default function CollectionForm({ classId, classInfo }) {
   };
 
   useEffect(() => {
-    if (classId) {
-      supabase.from("fees_setup").select("*").eq("class_id", classId).eq("is_active", true)
+    if (targetClassIds.length > 0) {
+      supabase.from("fees_setup").select("*").in("class_id", targetClassIds).eq("is_active", true)
         .then(({ data }) => setFees(data || []));
         
       fetchRecentPayments(collectionScope);
     }
-  }, [classId, collectionScope]);
+  }, [JSON.stringify(targetClassIds), collectionScope]);
 
   const fetchRecentPaymentsForSubmit = async () => {
     fetchRecentPayments(collectionScope);
   };
 
+  const selectStudent = (data) => {
+    setStudent(data);
+    setSelectedFees([]);
+    setSelectedDueMonths([]);
+
+    // Auto-check waiver eligibility
+    const isScholarshipStudent = data.waiver_status && (
+      data.waiver_status === "Full Free" ||
+      data.waiver_status.includes("বৃত্তি") ||
+      data.waiver_status.includes("উপবৃত্তি") ||
+      data.waiver_status.includes("Free")
+    );
+    setWaiverFreeApplied(isScholarshipStudent);
+
+    setAmountPaid(data.opening_due > 0 ? data.opening_due.toString() : "");
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!classId) {
+    if (targetClassIds.length === 0) {
       toast.error("আগে ক্লাস নির্বাচন করুন।");
       return;
     }
     if (!rollNo) return;
     
     setLoading(true);
+    setMultipleMatches([]);
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("*")
-        .eq("class_id", classId)
-        .eq("roll_no", rollNo)
-        .single();
+        .select("*, academic_classes(id, class_name, section_name, group_name)")
+        .in("class_id", targetClassIds)
+        .eq("roll_no", parseInt(rollNo, 10));
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          toast.error("এই রোলের কোনো স্টুডেন্ট পাওয়া যায়নি!");
-          setStudent(null);
-        } else throw error;
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast.error("এই রোলের কোনো শিক্ষার্থী পাওয়া যায়নি!");
+        setStudent(null);
+      } else if (data.length === 1) {
+        selectStudent(data[0]);
       } else {
-        setStudent(data);
-        setSelectedFees([]);
-        setSelectedDueMonths([]);
-
-        // Auto-check waiver eligibility
-        const isScholarshipStudent = data.waiver_status && (
-          data.waiver_status === "Full Free" ||
-          data.waiver_status.includes("বৃত্তি") ||
-          data.waiver_status.includes("উপবৃত্তি") ||
-          data.waiver_status.includes("Free")
-        );
-        setWaiverFreeApplied(isScholarshipStudent);
-
-        setAmountPaid(data.opening_due > 0 ? data.opening_due.toString() : "");
+        // Multiple matches across departments
+        setMultipleMatches(data);
+        toast("রোল " + rollNo + "-এ একাধিক বিভাগের শিক্ষার্থী পাওয়া গেছে, অনুগ্রহ করে নির্বাচন করুন।", { icon: "ℹ️" });
       }
     } catch (error) {
       toast.error(`❌ সার্চ এরর: ${error.message}`);
@@ -532,6 +546,35 @@ export default function CollectionForm({ classId, classInfo }) {
         </button>
       </form>
 
+      {/* Multiple Matches Resolution when searching in unified class */}
+      {multipleMatches.length > 1 && (
+        <div style={{ marginTop: "14px", marginBottom: "14px", padding: "12px 16px", background: "rgba(0, 112, 243, 0.08)", borderRadius: "var(--radius-md)", border: "1.5px solid var(--brand-primary)" }}>
+          <div style={{ fontSize: "13px", fontWeight: "700", marginBottom: "8px", color: "var(--brand-primary)" }}>
+            ℹ️ রোল {rollNo}-এ একাধিক বিভাগের শিক্ষার্থী পাওয়া গেছে, নির্বাচন করুন:
+          </div>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {multipleMatches.map(m => {
+              const grp = m.academic_classes?.group_name;
+              const grpLabel = grp === "Science" ? "বিজ্ঞান" : grp === "Commerce" ? "ব্যবসায় শিক্ষা" : grp === "Arts" ? "মানবিক" : grp || "সাধারণ";
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    selectStudent(m);
+                    setMultipleMatches([]);
+                  }}
+                  className="btn btn-primary"
+                  style={{ padding: "6px 14px", fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <b>{m.full_name}</b> — <span>{grpLabel} (রোল {m.roll_no})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {student && (
         <div style={{ padding: "20px", backgroundColor: "var(--bg-color)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
           
@@ -543,8 +586,16 @@ export default function CollectionForm({ classId, classInfo }) {
               </h4>
               <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "2px" }}>
                 রোল: <b>{student.roll_no}</b>
-                {currentClass?.class_name && <> | শ্রেণি: <b>{currentClass.class_name}</b></>}
-                {currentClass?.group_name && <> | বিভাগ: <b>{currentClass.group_name}</b></>}
+                {student.academic_classes?.class_name ? (
+                  <> | শ্রেণি: <b>{student.academic_classes.class_name}</b></>
+                ) : currentClass?.class_name ? (
+                  <> | শ্রেণি: <b>{currentClass.class_name}</b></>
+                ) : null}
+                {student.academic_classes?.group_name ? (
+                  <> | বিভাগ: <b>{student.academic_classes.group_name === "Science" ? "বিজ্ঞান" : student.academic_classes.group_name === "Commerce" ? "ব্যবসায় শিক্ষা" : student.academic_classes.group_name === "Arts" ? "মানবিক" : student.academic_classes.group_name}</b></>
+                ) : currentClass?.group_name ? (
+                  <> | বিভাগ: <b>{currentClass.group_name}</b></>
+                ) : null}
                 {" "}| স্ট্যাটাস:{" "}
                 <strong style={{ color: student.status === "Active" ? "var(--brand-success)" : "var(--brand-danger)" }}>
                   {student.status}

@@ -11,11 +11,16 @@ import PrintReportsModal from "./PrintReportsModal";
 import DepositSlipModal from "../deposits/DepositSlipModal";
 import toast from "react-hot-toast";
 
-export default function Dashboard({ classId, classInfo }) {
+export default function Dashboard({ classId, classIds, classInfo, selectedDepartment, onSelectDepartment }) {
   const { user } = useAuth();
   const { guardAction } = useLock();
   const [currentClass, setCurrentClass] = useState(classInfo || null);
   const [activeDepositModal, setActiveDepositModal] = useState(null);
+
+  const targetClassIds = useMemo(() => {
+    if (classIds && classIds.length > 0) return classIds;
+    return classId ? [classId] : [];
+  }, [classId, classIds]);
 
   
   const [stats, setStats] = useState({
@@ -42,7 +47,7 @@ export default function Dashboard({ classId, classInfo }) {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!user || !classId) return;
+      if (!user || targetClassIds.length === 0) return;
       setLoading(true);
       
       try {
@@ -50,7 +55,7 @@ export default function Dashboard({ classId, classInfo }) {
         const { data: students } = await supabase
           .from("students")
           .select("id, opening_due")
-          .eq("class_id", classId);
+          .in("class_id", targetClassIds);
           
         const totalDue = students?.reduce((sum, s) => sum + Number(s.opening_due), 0) || 0;
 
@@ -84,7 +89,7 @@ export default function Dashboard({ classId, classInfo }) {
         if (studentIds.length > 0) {
           const { data: classPayments } = await supabase
             .from("payments")
-            .select("amount_paid, due_remaining, deposit_id, receipt_no, paid_at, id, payment_method, students(id, full_name, roll_no, parent_phone)")
+            .select("amount_paid, due_remaining, deposit_id, receipt_no, paid_at, id, payment_method, students(id, full_name, roll_no, parent_phone, academic_classes(group_name))")
             .in("student_id", studentIds)
             .eq("is_voided", false)
             .order("paid_at", { ascending: false });
@@ -373,16 +378,16 @@ export default function Dashboard({ classId, classInfo }) {
                         <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রোল: {payment.students?.roll_no}</span>
                       </td>
                       <td style={{ padding: "10px" }}>
-                        {currentClass?.group_name ? (
+                        {payment.students?.academic_classes?.group_name || currentClass?.group_name ? (
                           <span style={{ 
                             padding: "2px 8px", 
                             borderRadius: "var(--radius-full)", 
                             fontSize: "11px", 
                             fontWeight: "700",
-                            backgroundColor: currentClass.group_name === "Science" ? "rgba(0, 112, 243, 0.12)" : currentClass.group_name === "Commerce" ? "rgba(39, 174, 96, 0.12)" : "rgba(142, 68, 173, 0.12)",
-                            color: currentClass.group_name === "Science" ? "#0070f3" : currentClass.group_name === "Commerce" ? "#27ae60" : "#8e44ad"
+                            backgroundColor: (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Science" ? "rgba(0, 112, 243, 0.12)" : (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Commerce" ? "rgba(39, 174, 96, 0.12)" : "rgba(142, 68, 173, 0.12)",
+                            color: (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Science" ? "#0070f3" : (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Commerce" ? "#27ae60" : "#8e44ad"
                           }}>
-                            {currentClass.group_name}
+                            {(payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Science" ? "বিজ্ঞান" : (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Commerce" ? "ব্যবসায় শিক্ষা" : (payment.students?.academic_classes?.group_name || currentClass?.group_name) === "Arts" ? "মানবিক" : (payment.students?.academic_classes?.group_name || currentClass?.group_name)}
                           </span>
                         ) : (
                           <span style={{ color: "var(--text-secondary)", fontSize: "12px" }}>সাধারণ</span>
@@ -487,6 +492,7 @@ export default function Dashboard({ classId, classInfo }) {
       {showReportsModal && (
         <PrintReportsModal
           classId={classId}
+          classIds={targetClassIds}
           classInfo={currentClass}
           onClose={() => setShowReportsModal(false)}
         />

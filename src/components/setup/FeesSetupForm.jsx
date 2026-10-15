@@ -6,11 +6,17 @@ import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
 import toast from "react-hot-toast";
 
-export default function FeesSetupForm({ classId }) {
+export default function FeesSetupForm({ classId, classIds, classInfo, selectedDepartment, onSelectDepartment }) {
   const { user } = useAuth();
   const { guardAction } = useLock();
   const [loading, setLoading] = useState(false);
 
+  const targetClassIds = useMemo(() => {
+    if (classIds && classIds.length > 0) return classIds;
+    return classId ? [classId] : [];
+  }, [classId, classIds]);
+
+  const [feeScope, setFeeScope] = useState("all");
   const [fees, setFees] = useState([]);
   const [formData, setFormData] = useState({
     fee_type: "Monthly",
@@ -18,34 +24,24 @@ export default function FeesSetupForm({ classId }) {
     amount: "",
   });
 
-  useEffect(() => {
-    const fetchFees = async () => {
-      if (!classId) return;
-      const { data, error } = await supabase
-        .from("fees_setup")
-        .select("*")
-        .eq("class_id", classId)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        toast.error("ফি লিস্ট লোড করতে সমস্যা হয়েছে।");
-      } else {
-        setFees(data || []);
-      }
-    };
-
-    fetchFees();
-  }, [classId]);
-
-  const fetchFeesForSubmit = async () => {
-    if (!classId) return;
+  const fetchFees = useCallback(async () => {
+    if (targetClassIds.length === 0) return;
     const { data, error } = await supabase
       .from("fees_setup")
-      .select("*")
-      .eq("class_id", classId)
+      .select("*, academic_classes(id, class_name, section_name, group_name)")
+      .in("class_id", targetClassIds)
       .order("created_at", { ascending: false });
-    if (!error) setFees(data || []);
-  };
+
+    if (error) {
+      toast.error("ফি লিস্ট লোড করতে সমস্যা হয়েছে।");
+    } else {
+      setFees(data || []);
+    }
+  }, [targetClassIds]);
+
+  useEffect(() => {
+    fetchFees();
+  }, [fetchFees]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,31 +50,44 @@ export default function FeesSetupForm({ classId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user || !classId) return;
+    if (!user || targetClassIds.length === 0) return;
 
     if (!formData.amount || isNaN(formData.amount)) {
       toast.error("সঠিক টাকার পরিমাণ দিন।");
       return;
     }
 
+    const feeTypeFinal = formData.fee_type === "Others" && formData.custom_fee_name ? formData.custom_fee_name : formData.fee_type;
+    const monthFinal = formData.fee_type === "Monthly" ? formData.month_name : null;
+    const amountFinal = parseFloat(formData.amount);
+
     setLoading(true);
     try {
-      const { error } = await supabase.from("fees_setup").insert([
-        {
-          teacher_id: user.id,
-          class_id: classId,
-          fee_type: formData.fee_type === "Others" && formData.custom_fee_name ? formData.custom_fee_name : formData.fee_type,
-          month_name: formData.fee_type === "Monthly" ? formData.month_name : null,
-          amount: parseFloat(formData.amount),
-          is_active: true,
-        },
-      ]);
+      const inserts = (feeScope === "all" && classInfo?.allVariants && classInfo.allVariants.length > 1)
+        ? classInfo.allVariants.map(v => ({
+            teacher_id: user.id,
+            class_id: v.id,
+            fee_type: feeTypeFinal,
+            month_name: monthFinal,
+            amount: amountFinal,
+            is_active: true
+          }))
+        : [{
+            teacher_id: user.id,
+            class_id: feeScope !== "all" ? feeScope : classId,
+            fee_type: feeTypeFinal,
+            month_name: monthFinal,
+            amount: amountFinal,
+            is_active: true
+          }];
+
+      const { error } = await supabase.from("fees_setup").insert(inserts);
 
       if (error) throw error;
 
       toast.success("✅ নতুন ফি সফলভাবে যোগ করা হয়েছে!");
       setFormData({ fee_type: "Monthly", month_name: "", amount: "" });
-      fetchFeesForSubmit();
+      fetchFees();
     } catch (error) {
       toast.error(`❌ এরর: ${error.message}`);
     } finally {
@@ -107,6 +116,24 @@ export default function FeesSetupForm({ classId }) {
       
       <form onSubmit={handleSubmit} style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "flex-end" }}>
         
+        {classInfo?.allVariants && classInfo.allVariants.length > 1 && (
+          <div style={{ flex: "1", minWidth: "160px" }}>
+            <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", fontWeight: "bold" }}>প্রযোজ্য বিভাগ</label>
+            <select
+              value={feeScope}
+              onChange={(e) => setFeeScope(e.target.value)}
+              style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1.5px solid var(--brand-primary)", fontWeight: "600", fontSize: "13px" }}
+            >
+              <option value="all">সকল বিভাগ (All Groups)</option>
+              {classInfo.allVariants.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.group_name === "Science" ? "বিজ্ঞান (Science)" : v.group_name === "Commerce" ? "ব্যবসায় শিক্ষা (Commerce)" : v.group_name === "Arts" ? "মানবিক (Arts)" : (v.group_name || "সাধারণ")}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div style={{ flex: "1", minWidth: "150px" }}>
           <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", fontWeight: "bold" }}>ফি এর ধরণ</label>
           <select 
@@ -194,7 +221,14 @@ export default function FeesSetupForm({ classId }) {
           <ul style={{ listStyle: "none", padding: 0, marginTop: "10px" }}>
             {fees.map((fee) => (
               <li key={fee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", borderBottom: "1px solid var(--border-color)" }}>
-                <span>{fee.fee_type} {fee.month_name ? `(${fee.month_name})` : ''}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>{fee.fee_type} {fee.month_name ? `(${fee.month_name})` : ''}</span>
+                  {fee.academic_classes?.group_name && (
+                    <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "var(--radius-full)", background: "rgba(0, 112, 243, 0.12)", color: "var(--brand-primary)", fontWeight: "bold" }}>
+                      {fee.academic_classes.group_name === "Science" ? "বিজ্ঞান" : fee.academic_classes.group_name === "Commerce" ? "ব্যবসায় শিক্ষা" : fee.academic_classes.group_name === "Arts" ? "মানবিক" : fee.academic_classes.group_name}
+                    </span>
+                  )}
+                </span>
                 <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
                   <span style={{ fontWeight: "bold" }}>{fee.amount} ৳</span>
                   <button 

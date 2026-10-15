@@ -9,6 +9,7 @@ import { X, UserPlus } from "lucide-react";
 export default function ManualStudentModal({ classId, classInfo, onClose, onSuccess }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [targetClassId, setTargetClassId] = useState(classId || (classInfo?.allVariants?.[0]?.id) || "");
   const [formData, setFormData] = useState({
     roll_no: "",
     full_name: "",
@@ -25,7 +26,8 @@ export default function ManualStudentModal({ classId, classInfo, onClose, onSucc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user || !classId) return;
+    const finalClassId = targetClassId || classId;
+    if (!user || !finalClassId) return;
 
     if (!formData.roll_no || !formData.full_name) {
       toast.error("রোল এবং নাম দেওয়া আবশ্যক!");
@@ -36,7 +38,7 @@ export default function ManualStudentModal({ classId, classInfo, onClose, onSucc
     try {
       const { error } = await supabase.from("students").insert([{
         teacher_id: user.id,
-        class_id: classId,
+        class_id: finalClassId,
         roll_no: parseInt(formData.roll_no),
         full_name: formData.full_name,
         parent_name: formData.parent_name || null,
@@ -83,6 +85,25 @@ export default function ManualStudentModal({ classId, classInfo, onClose, onSucc
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
           
+          {classInfo?.allVariants && classInfo.allVariants.length > 1 && (
+            <div>
+              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
+                বিভাগ (Department / Group) *
+              </label>
+              <select
+                value={targetClassId}
+                onChange={(e) => setTargetClassId(e.target.value)}
+                style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", border: "1.5px solid var(--brand-primary)", fontWeight: "600", fontSize: "13.5px" }}
+              >
+                {classInfo.allVariants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.group_name === "Science" ? "বিজ্ঞান (Science)" : v.group_name === "Commerce" ? "ব্যবসায় শিক্ষা (Commerce)" : v.group_name === "Arts" ? "মানবিক (Arts)" : (v.group_name || "সাধারণ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: "15px" }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>রোল নম্বর *</label>

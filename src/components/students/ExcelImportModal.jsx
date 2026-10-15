@@ -78,6 +78,7 @@ const isDueKey = (norm) => {
 export default function ExcelImportModal({ classId, classInfo, onClose, onSuccess }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [targetClassId, setTargetClassId] = useState(classId || (classInfo?.allVariants?.[0]?.id) || "");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
@@ -212,7 +213,8 @@ export default function ExcelImportModal({ classId, classInfo, onClose, onSucces
   };
 
   const handleImport = async () => {
-    if (!user || !classId) return;
+    const finalClassId = targetClassId || classId;
+    if (!user || !finalClassId) return;
     if (preview.length === 0) {
       toast.error("কোনো বৈধ ডেটা পাওয়া যায়নি!");
       return;
@@ -222,7 +224,7 @@ export default function ExcelImportModal({ classId, classInfo, onClose, onSucces
     try {
       const insertData = preview.map((student) => ({
         teacher_id: user.id,
-        class_id: classId,
+        class_id: finalClassId,
         roll_no: student.roll_no,
         full_name: student.full_name,
         parent_name: student.parent_name || null,
@@ -292,6 +294,26 @@ export default function ExcelImportModal({ classId, classInfo, onClose, onSucces
             <X size={20} />
           </button>
         </div>
+
+        {classInfo?.allVariants && classInfo.allVariants.length > 1 && (
+          <div style={{ marginBottom: "16px", padding: "12px", background: "var(--bg-color)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px" }}>
+              বিভাগ / গ্রুপ নির্বাচন করুন (যে বিভাগে স্টুডেন্ট ইমপোর্ট হবে):
+            </label>
+            <select
+              className="form-control"
+              value={targetClassId}
+              onChange={(e) => setTargetClassId(e.target.value)}
+              style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", fontWeight: "500" }}
+            >
+              {classInfo.allVariants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.group_name || "সাধারণ"} {v.section_name ? `(${v.section_name})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Download Sample Template Banner */}
         <div

@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import SchoolPrintHeader from "@/components/common/SchoolPrintHeader";
 
-export default function PrintReportsModal({ classId, classInfo, onClose }) {
+export default function PrintReportsModal({ classId, classIds, classInfo, onClose }) {
   const [reportType, setReportType] = useState("collection"); // "collection" or "deposit"
   const [period, setPeriod] = useState("monthly"); // "monthly" or "yearly"
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
@@ -19,6 +19,8 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
   const [loading, setLoading] = useState(false);
   const [currentClass, setCurrentClass] = useState(classInfo || null);
   const [mounted, setMounted] = useState(false);
+
+  const targetClassIds = (classIds && classIds.length > 0) ? classIds : (classId ? [classId] : []);
 
   useEffect(() => {
     setMounted(true);
@@ -60,13 +62,13 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!classId && reportType === "collection") return;
+      if (targetClassIds.length === 0 && reportType === "collection") return;
       setLoading(true);
       
       try {
         if (reportType === "collection") {
           // Fetch students in this class
-          const { data: students } = await supabase.from("students").select("id").eq("class_id", classId);
+          const { data: students } = await supabase.from("students").select("id").in("class_id", targetClassIds);
           const studentIds = students ? students.map(s => s.id) : [];
 
           if (studentIds.length === 0) {
@@ -78,7 +80,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
           // Fetch payments
           const { data: payments } = await supabase
             .from("payments")
-            .select("*, students(full_name, roll_no)")
+            .select("*, students(full_name, roll_no, academic_classes(group_name))")
             .in("student_id", studentIds)
             .eq("is_voided", false)
             .order("paid_at", { ascending: true });
@@ -192,7 +194,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
     };
 
     fetchData();
-  }, [reportType, period, selectedMonth, selectedYear, classId]);
+  }, [reportType, period, selectedMonth, selectedYear, classId, JSON.stringify(targetClassIds)]);
 
   const handlePrint = () => {
     window.print();
@@ -207,7 +209,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
         "তারিখ": new Date(item.paid_at).toLocaleDateString('bn-BD'),
         "স্টুডেন্ট": item.students?.full_name,
         "রোল": item.students?.roll_no,
-        "বিভাগ (Group)": currentClass?.group_name || "-",
+        "বিভাগ (Group)": item.students?.academic_classes?.group_name || currentClass?.group_name || "-",
         "রসিদ নং": item.receipt_no,
         "পরিমাণ (৳)": item.amount_paid
       }));
@@ -604,7 +606,7 @@ export default function PrintReportsModal({ classId, classInfo, onClose }) {
                         <>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.students?.full_name}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.students?.roll_no}</td>
-                          <td style={{ padding: "6px", border: "1px solid black" }}>{currentClass?.group_name || "-"}</td>
+                          <td style={{ padding: "6px", border: "1px solid black" }}>{item.students?.academic_classes?.group_name || currentClass?.group_name || "-"}</td>
                           <td style={{ padding: "6px", border: "1px solid black" }}>{item.receipt_no}</td>
                         </>
                       ) : (

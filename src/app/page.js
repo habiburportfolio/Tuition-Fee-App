@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useLock } from "@/context/LockContext";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
+import { groupAcademicClasses, getDepartmentShortLabel } from "@/utils/academicClassUtils";
 import { LogOut, BookOpen, Users, DollarSign, CreditCard, Landmark, LayoutDashboard, Moon, Sun, Eye, EyeOff, Settings, Lock, Unlock } from "lucide-react";
 
 // Components
@@ -31,9 +32,58 @@ export default function Home() {
   
   // App state
   const [classes, setClasses] = useState([]);
-  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedUnifiedKey, setSelectedUnifiedKey] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [activeTab, setActiveTab] = useState("collection");
   const [theme, setTheme] = useState("light");
+
+  const unifiedClasses = useMemo(() => groupAcademicClasses(classes), [classes]);
+
+  useEffect(() => {
+    if (unifiedClasses.length > 0) {
+      if (!selectedUnifiedKey || !unifiedClasses.some(u => u.key === selectedUnifiedKey)) {
+        setSelectedUnifiedKey(unifiedClasses[0].key);
+        setSelectedDepartment("all");
+      }
+    }
+  }, [unifiedClasses, selectedUnifiedKey]);
+
+  const currentUnifiedClass = useMemo(() => {
+    return unifiedClasses.find(u => u.key === selectedUnifiedKey) || unifiedClasses[0] || null;
+  }, [unifiedClasses, selectedUnifiedKey]);
+
+  const activeClassIds = useMemo(() => {
+    if (!currentUnifiedClass) return [];
+    if (!currentUnifiedClass.hasGroups || selectedDepartment === "all") {
+      return currentUnifiedClass.variants.map(v => v.id);
+    }
+    const found = currentUnifiedClass.variants.find(v => v.group_name === selectedDepartment);
+    return found ? [found.id] : currentUnifiedClass.variants.map(v => v.id);
+  }, [currentUnifiedClass, selectedDepartment]);
+
+  const activeClassId = useMemo(() => {
+    return activeClassIds[0] || "";
+  }, [activeClassIds]);
+
+  const activeClassInfo = useMemo(() => {
+    if (!currentUnifiedClass) return null;
+    const baseVariant = currentUnifiedClass.variants[0];
+    if (selectedDepartment !== "all") {
+      const found = currentUnifiedClass.variants.find(v => v.group_name === selectedDepartment);
+      if (found) return found;
+    }
+    return {
+      id: baseVariant?.id,
+      class_name: currentUnifiedClass.class_name,
+      section_name: currentUnifiedClass.section_name,
+      session_year: currentUnifiedClass.session_year,
+      group_name: selectedDepartment !== "all" ? selectedDepartment : null,
+      isUnified: currentUnifiedClass.hasGroups && selectedDepartment === "all",
+      hasGroups: currentUnifiedClass.hasGroups,
+      unifiedKey: currentUnifiedClass.key,
+      allVariants: currentUnifiedClass.variants
+    };
+  }, [currentUnifiedClass, selectedDepartment]);
 
   // Load theme from localStorage
   useEffect(() => {
@@ -58,12 +108,9 @@ export default function Home() {
         .order("created_at", { ascending: false })
         .then(({ data }) => {
           setClasses(data || []);
-          if (data && data.length > 0 && !selectedClassId) {
-            setSelectedClassId(data[0].id);
-          }
         });
     }
-  }, [user, selectedClassId]);
+  }, [user]);
 
   // Check for password recovery event or reset token in URL hash
   useEffect(() => {
@@ -320,20 +367,70 @@ export default function Home() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           
           {/* Global Class Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "14px", fontWeight: "bold" }}>বর্তমান ক্লাস:</span>
             <select 
-              value={selectedClassId} 
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              style={{ padding: "8px", borderRadius: "var(--radius-sm)", border: "1px solid var(--brand-primary)", fontWeight: "bold", outline: "none" }}
+              value={selectedUnifiedKey} 
+              onChange={(e) => {
+                setSelectedUnifiedKey(e.target.value);
+                setSelectedDepartment("all");
+              }}
+              style={{ padding: "8px 12px", borderRadius: "var(--radius-sm)", border: "1.5px solid var(--brand-primary)", fontWeight: "bold", outline: "none", fontSize: "13px" }}
             >
               <option value="">নির্বাচন করুন</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.class_name} {c.group_name ? `(${c.group_name})` : ''} {c.section_name ? `[${c.section_name}]` : ''} - {c.session_year}
+              {unifiedClasses.map(u => (
+                <option key={u.key} value={u.key}>
+                  {u.displayName}
                 </option>
               ))}
             </select>
+
+            {/* Department (বিভাগ) Selector for Class 9/10 or classes with groups */}
+            {currentUnifiedClass && currentUnifiedClass.hasGroups && (
+              <div style={{ display: "flex", alignItems: "center", gap: "5px", background: "var(--card-bg)", padding: "3px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+                <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-secondary)" }}>বিভাগ:</span>
+                <div style={{ display: "inline-flex", gap: "3px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDepartment("all")}
+                    className="btn"
+                    style={{
+                      padding: "4px 9px",
+                      fontSize: "11.5px",
+                      fontWeight: "700",
+                      borderRadius: "var(--radius-sm)",
+                      border: selectedDepartment === "all" ? "1px solid var(--brand-primary)" : "1px solid transparent",
+                      background: selectedDepartment === "all" ? "var(--brand-primary)" : "transparent",
+                      color: selectedDepartment === "all" ? "#ffffff" : "var(--text-secondary)"
+                    }}
+                  >
+                    সকল বিভাগ
+                  </button>
+                  {currentUnifiedClass.variants.map(v => {
+                    const isSelected = selectedDepartment === v.group_name;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedDepartment(v.group_name)}
+                        className="btn"
+                        style={{
+                          padding: "4px 9px",
+                          fontSize: "11.5px",
+                          fontWeight: "700",
+                          borderRadius: "var(--radius-sm)",
+                          border: isSelected ? "1px solid var(--brand-primary)" : "1px solid transparent",
+                          background: isSelected ? "var(--brand-primary)" : "transparent",
+                          color: isSelected ? "#ffffff" : "var(--text-secondary)"
+                        }}
+                      >
+                        {getDepartmentShortLabel(v.group_name)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
@@ -398,7 +495,7 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div style={{ flex: 1 }}>
-          {activeTab !== "setup" && activeTab !== "deposit" && activeTab !== "profile" && !selectedClassId ? (
+          {activeTab !== "setup" && activeTab !== "deposit" && activeTab !== "profile" && !activeClassId ? (
             <div className="card" style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
               <BookOpen size={48} style={{ marginBottom: "15px", opacity: 0.5 }} />
               <h3>কোনো ক্লাস নির্বাচিত নেই</h3>
@@ -406,11 +503,43 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {activeTab === "dashboard" && <Dashboard classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
-              {activeTab === "collection" && <CollectionForm classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
+              {activeTab === "dashboard" && (
+                <Dashboard 
+                  classId={activeClassId} 
+                  classIds={activeClassIds}
+                  classInfo={activeClassInfo} 
+                  selectedDepartment={selectedDepartment}
+                  onSelectDepartment={setSelectedDepartment}
+                />
+              )}
+              {activeTab === "collection" && (
+                <CollectionForm 
+                  classId={activeClassId} 
+                  classIds={activeClassIds}
+                  classInfo={activeClassInfo} 
+                  selectedDepartment={selectedDepartment}
+                  onSelectDepartment={setSelectedDepartment}
+                />
+              )}
               {activeTab === "deposit" && <DepositForm />}
-              {activeTab === "students" && <StudentList classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
-              {activeTab === "fees" && <FeesSetupForm classId={selectedClassId} classInfo={classes.find(c => c.id === selectedClassId)} />}
+              {activeTab === "students" && (
+                <StudentList 
+                  classId={activeClassId} 
+                  classIds={activeClassIds}
+                  classInfo={activeClassInfo} 
+                  selectedDepartment={selectedDepartment}
+                  onSelectDepartment={setSelectedDepartment}
+                />
+              )}
+              {activeTab === "fees" && (
+                <FeesSetupForm 
+                  classId={activeClassId} 
+                  classIds={activeClassIds}
+                  classInfo={activeClassInfo} 
+                  selectedDepartment={selectedDepartment}
+                  onSelectDepartment={setSelectedDepartment}
+                />
+              )}
               {activeTab === "setup" && <AcademicSetupForm />}
               {activeTab === "profile" && <ProfileSetupForm />}
             </>
