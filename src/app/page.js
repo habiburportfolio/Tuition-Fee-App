@@ -49,11 +49,12 @@ export default function Home() {
   }, [unifiedClasses, selectedUnifiedKey]);
 
   const currentUnifiedClass = useMemo(() => {
+    if (!unifiedClasses || unifiedClasses.length === 0) return null;
     return unifiedClasses.find(u => u.key === selectedUnifiedKey) || unifiedClasses[0] || null;
   }, [unifiedClasses, selectedUnifiedKey]);
 
   const activeClassIds = useMemo(() => {
-    if (!currentUnifiedClass) return [];
+    if (!currentUnifiedClass || !Array.isArray(currentUnifiedClass.variants)) return [];
     if (!currentUnifiedClass.hasGroups || selectedDepartment === "all") {
       return currentUnifiedClass.variants.map(v => v.id);
     }
@@ -66,7 +67,7 @@ export default function Home() {
   }, [activeClassIds]);
 
   const activeClassInfo = useMemo(() => {
-    if (!currentUnifiedClass) return null;
+    if (!currentUnifiedClass || !Array.isArray(currentUnifiedClass.variants) || currentUnifiedClass.variants.length === 0) return null;
     const baseVariant = currentUnifiedClass.variants[0];
     if (selectedDepartment !== "all") {
       const found = currentUnifiedClass.variants.find(v => v.group_name === selectedDepartment);
@@ -386,7 +387,7 @@ export default function Home() {
             </select>
 
             {/* Department (বিভাগ) Selector for Class 9/10 or classes with groups */}
-            {currentUnifiedClass && currentUnifiedClass.hasGroups && (
+            {currentUnifiedClass && currentUnifiedClass.hasGroups && Array.isArray(currentUnifiedClass.variants) && (
               <div style={{ display: "flex", alignItems: "center", gap: "5px", background: "var(--card-bg)", padding: "3px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
                 <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-secondary)" }}>বিভাগ:</span>
                 <div style={{ display: "inline-flex", gap: "3px" }}>
@@ -406,7 +407,7 @@ export default function Home() {
                   >
                     সকল বিভাগ
                   </button>
-                  {currentUnifiedClass.variants.map(v => {
+                  {currentUnifiedClass.variants.filter(v => v && v.group_name).map(v => {
                     const isSelected = selectedDepartment === v.group_name;
                     return (
                       <button

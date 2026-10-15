@@ -5,20 +5,20 @@
 
 export function getDepartmentLabel(groupName) {
   if (!groupName) return "সাধারণ";
-  const lower = groupName.toLowerCase().trim();
+  const lower = String(groupName).toLowerCase().trim();
   if (lower === "science" || lower === "বিজ্ঞান") return "বিজ্ঞান (Science)";
   if (lower === "commerce" || lower === "বাণিজ্য" || lower === "ব্যবসায় শিক্ষা" || lower === "ব্যবসায় শিক্ষা") return "ব্যবসায় শিক্ষা (Commerce)";
   if (lower === "arts" || lower === "মানবিক") return "মানবিক (Arts)";
-  return groupName;
+  return String(groupName);
 }
 
 export function getDepartmentShortLabel(groupName) {
   if (!groupName) return "সাধারণ";
-  const lower = groupName.toLowerCase().trim();
+  const lower = String(groupName).toLowerCase().trim();
   if (lower === "science" || lower === "বিজ্ঞান") return "বিজ্ঞান";
   if (lower === "commerce" || lower === "বাণিজ্য" || lower === "ব্যবসায় শিক্ষা" || lower === "ব্যবসায় শিক্ষা") return "ব্যবসায় শিক্ষা";
   if (lower === "arts" || lower === "মানবিক") return "মানবিক";
-  return groupName;
+  return String(groupName);
 }
 
 export function groupAcademicClasses(rawClasses) {
@@ -29,9 +29,11 @@ export function groupAcademicClasses(rawClasses) {
   const map = new Map();
 
   rawClasses.forEach((c) => {
-    const classNameClean = (c.class_name || "").trim();
-    const sectionClean = (c.section_name || "").trim();
-    const yearClean = (c.session_year || "").trim();
+    if (!c || typeof c !== "object") return;
+
+    const classNameClean = String(c.class_name != null ? c.class_name : "").trim();
+    const sectionClean = String(c.section_name != null ? c.section_name : "").trim();
+    const yearClean = String(c.session_year != null ? c.session_year : "").trim();
 
     // Grouping key: identical class name, section, and session year
     const key = `${classNameClean}___${sectionClean}___${yearClean}`;
@@ -60,10 +62,11 @@ export function groupAcademicClasses(rawClasses) {
     const entry = map.get(key);
     entry.variants.push(c);
 
-    if (c.group_name && c.group_name.trim() !== "") {
+    if (c.group_name && String(c.group_name).trim() !== "") {
       entry.hasGroups = true;
-      if (!entry.groups.includes(c.group_name)) {
-        entry.groups.push(c.group_name);
+      const grp = String(c.group_name).trim();
+      if (!entry.groups.includes(grp)) {
+        entry.groups.push(grp);
       }
     }
   });
