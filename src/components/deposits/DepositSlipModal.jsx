@@ -62,7 +62,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
       try {
         const { data, error } = await supabase
           .from("payments")
-          .select("id, amount_paid, payment_method, receipt_no, paid_at, students(full_name, roll_no)")
+          .select("id, amount_paid, payment_method, receipt_no, paid_at, students(full_name, roll_no, class_id, academic_classes(class_name, section_name, group_name))")
           .eq("deposit_id", deposit.id)
           .eq("is_voided", false);
 
@@ -304,6 +304,11 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
+
+            .deposit-receipts-scroll {
+              max-height: none !important;
+              overflow: visible !important;
+            }
           }
         `}</style>
 
@@ -531,6 +536,7 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
                 অন্তর্ভুক্ত স্টুডেন্ট রসিদসমূহ ({payments.length} টি):
               </div>
               <div
+                className="deposit-receipts-scroll"
                 style={{
                   maxHeight: "140px",
                   overflowY: "auto",
@@ -544,21 +550,34 @@ export default function DepositSlipModal({ deposit, onClose, onUpdated }) {
                     <tr style={{ background: "var(--bg-color)", borderBottom: "1px solid var(--border-color)" }}>
                       <th style={{ padding: "5px 8px", textAlign: "left" }}>রসিদ নং</th>
                       <th style={{ padding: "5px 8px", textAlign: "left" }}>শিক্ষার্থী</th>
+                      <th style={{ padding: "5px 8px", textAlign: "left" }}>শ্রেণি ও বিভাগ</th>
                       <th style={{ padding: "5px 8px", textAlign: "left" }}>রোল</th>
                       <th style={{ padding: "5px 8px", textAlign: "right" }}>টাকা</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payments.map(p => (
-                      <tr key={p.id} style={{ borderBottom: "1px dashed var(--border-color)" }}>
-                        <td style={{ padding: "4px 8px", fontWeight: "600" }}>{p.receipt_no}</td>
-                        <td style={{ padding: "4px 8px" }}>{p.students?.full_name}</td>
-                        <td style={{ padding: "4px 8px" }}>{p.students?.roll_no}</td>
-                        <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "700", color: "var(--brand-success)" }}>
-                          {p.amount_paid} ৳
-                        </td>
-                      </tr>
-                    ))}
+                    {payments.map(p => {
+                      const cls = p.students?.academic_classes;
+                      const groupLabel = cls?.group_name === "Science" ? "বিজ্ঞান"
+                        : cls?.group_name === "Commerce" ? "ব্যবসায় শিক্ষা"
+                        : cls?.group_name === "Arts" ? "মানবিক"
+                        : cls?.group_name || "";
+                      const classDisplay = cls
+                        ? `${cls.class_name || ""}${groupLabel ? ` (${groupLabel})` : ""}${cls.section_name ? ` [${cls.section_name}]` : ""}`.trim()
+                        : "-";
+
+                      return (
+                        <tr key={p.id} style={{ borderBottom: "1px dashed var(--border-color)" }}>
+                          <td style={{ padding: "4px 8px", fontWeight: "600" }}>{p.receipt_no}</td>
+                          <td style={{ padding: "4px 8px" }}>{p.students?.full_name || "-"}</td>
+                          <td style={{ padding: "4px 8px", color: "var(--text-secondary)" }}>{classDisplay}</td>
+                          <td style={{ padding: "4px 8px" }}>{p.students?.roll_no ?? "-"}</td>
+                          <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "700", color: "var(--brand-success)" }}>
+                            {p.amount_paid} ৳
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -30,7 +30,7 @@ export default function DepositForm() {
       if (!user) return;
       const { data, error } = await supabase
         .from("payments")
-        .select("*, students(full_name, roll_no)")
+        .select("*, students(full_name, roll_no, class_id, academic_classes(class_name, section_name, group_name))")
         .eq("teacher_id", user.id)
         .eq("is_voided", false)
         .is("deposit_id", null)
@@ -61,7 +61,7 @@ export default function DepositForm() {
     if (!user) return;
     const { data } = await supabase
       .from("payments")
-      .select("*, students(full_name, roll_no)")
+      .select("*, students(full_name, roll_no, class_id, academic_classes(class_name, section_name, group_name))")
       .eq("teacher_id", user.id)
       .eq("is_voided", false)
       .is("deposit_id", null)
@@ -215,8 +215,19 @@ export default function DepositForm() {
                         style={{ width: "16px", height: "16px", accentColor: "var(--brand-primary)" }}
                       />
                       <div>
-                        <div style={{ fontWeight: "bold", fontSize: "14px" }}>{pay.students?.full_name} (রোল: {pay.students?.roll_no})</div>
-                        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>রসিদ: {pay.receipt_no}</div>
+                        <div style={{ fontWeight: "bold", fontSize: "14px" }}>
+                          {pay.students?.full_name} (রোল: {pay.students?.roll_no})
+                        </div>
+                        <div style={{ fontSize: "12px", color: "var(--text-secondary)", display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                          <span>রসিদ: {pay.receipt_no}</span>
+                          {pay.students?.academic_classes && (
+                            <span>
+                              • {pay.students.academic_classes.class_name}
+                              {pay.students.academic_classes.group_name ? ` (${pay.students.academic_classes.group_name === "Science" ? "বিজ্ঞান" : pay.students.academic_classes.group_name === "Commerce" ? "ব্যবসায় শিক্ষা" : pay.students.academic_classes.group_name === "Arts" ? "মানবিক" : pay.students.academic_classes.group_name})` : ""}
+                              {pay.students.academic_classes.section_name ? ` [${pay.students.academic_classes.section_name}]` : ""}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div style={{ fontWeight: "bold", color: "var(--brand-success)" }}>{pay.amount_paid} ৳</div>
